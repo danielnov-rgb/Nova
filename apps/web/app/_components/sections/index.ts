@@ -1,0 +1,9 @@
+export { HeroSection } from "./HeroSection";
+export { BenefitsGrid } from "./BenefitsGrid";
+export { ProcessSteps } from "./ProcessSteps";
+export { VisualPlaceholder } from "./VisualPlaceholder";
+export { CapabilitiesList } from "./CapabilitiesList";
+export { ModuleNavigation } from "./ModuleNavigation";
+export { ProblemStatement } from "./ProblemStatement";
+export { UseCases } from "./UseCases";
+export { PersonaValue } from "./PersonaValue";

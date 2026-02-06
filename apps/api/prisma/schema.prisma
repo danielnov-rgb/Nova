@@ -1,0 +1,321 @@
+// Nova - Product Intelligence Platform
+// Multi-tenant database schema
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/.prisma/client"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+// ============================================================================
+// MULTI-TENANCY & AUTH
+// ============================================================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?  @unique
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users          User[]
+  clientContexts ClientContext[]
+  problems       Problem[]
+  votingSessions VotingSession[]
+  solutions      Solution[]
+  audiences      TargetAudience[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  role         UserRole @default(MEMBER)
+  firstName    String?
+  lastName     String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  votes         Vote[]
+  voterSessions VoterSession[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum UserRole {
+  FDE    // Forward Deployed Engineer (super admin)
+  ADMIN  // Client admin
+  MEMBER // Client team member
+  VOTER  // External voter (limited access)
+}
+
+// ============================================================================
+// CLIENT ONBOARDING
+// ============================================================================
+
+model ClientContext {
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique
+  objectives            String?  @db.Text
+  businessModel         String?  @db.Text
+  competitiveAdvantages String?  @db.Text
+  existingProblems      String?  @db.Text
+  designSystemUrl       String?
+  gitRepoUrl            String?
+  terminologyGlossary   Json     @default("{}")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("client_contexts")
+}
+
+// ============================================================================
+// TARGET AUDIENCE
+// ============================================================================
+
+model TargetAudience {
+  id        String             @id @default(cuid())
+  tenantId  String
+  name      String
+  type      TargetAudienceType
+  segments  Json               @default("[]") // Array of segment definitions
+  targets   Json               @default("{}") // Numeric targets per segment
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("target_audiences")
+}
+
+enum TargetAudienceType {
+  EXISTING // Current customer base
+  TARGET   // Desired acquisition targets
+  MARKET   // Market demographics
+}
+
+// ============================================================================
+// PROBLEM DISCOVERY & VOTING
+// ============================================================================
+
+model Problem {
+  id          String                      @id @default(cuid())
+  tenantId    String
+  title       String
+  description String?                     @db.Text
+  source      ProblemSource               @default(MANUAL)
+  evidence    Json                        @default("{}") // Who reported, how discovered
+  embedding   Unsupported("vector(1536)")?
+  scores      Json                        @default("{}") // Severity, feasibility, etc.
+  status      ProblemStatus               @default(DISCOVERED)
+  tags        String[]
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+
+  // Relations
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  votingSessions VotingSessionProblem[]
+  votes          Vote[]
+  solutions      Solution[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("problems")
+}
+
+enum ProblemSource {
+  SYNTHETIC_INTERVIEW // Generated from AI interviews
+  MANUAL              // Manually entered
+  IMPORT              // Imported from CSV/JSON
+  RESEARCH            // From competitor/market research
+}
+
+enum ProblemStatus {
+  DISCOVERED  // Initial discovery
+  SHORTLISTED // Selected for consideration
+  BACKLOG     // In the problem backlog
+  IN_PROGRESS // Being worked on
+  SOLVED      // Solution implemented
+  DISCARDED   // Not pursuing
+}
+
+model VotingSession {
+  id             String              @id @default(cuid())
+  tenantId       String
+  title          String
+  description    String?             @db.Text
+  deadline       DateTime?
+  status         VotingSessionStatus @default(DRAFT)
+  config         Json                @default("{}") // Credit allocations per role, etc.
+  isPublic       Boolean             @default(false) // Allow public registration
+  publicToken    String?             @unique // Shareable token for public access
+  defaultCredits Int                 @default(10) // Credits for public voters
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  // Relations
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  problems      VotingSessionProblem[]
+  votes         Vote[]
+  links         VotingLink[]
+  voterSessions VoterSession[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([publicToken])
+  @@map("voting_sessions")
+}
+
+enum VotingSessionStatus {
+  DRAFT    // Being set up
+  ACTIVE   // Open for voting
+  CLOSED   // Voting complete
+  ARCHIVED // Historical record
+}
+
+model VotingSessionProblem {
+  id               String   @id @default(cuid())
+  votingSessionId  String
+  problemId        String
+  preScore         Float?   // System-calculated score before voting
+  displayOrder     Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  // Relations
+  votingSession VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
+  problem       Problem       @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([votingSessionId, problemId])
+  @@map("voting_session_problems")
+}
+
+model Vote {
+  id              String   @id @default(cuid())
+  votingSessionId String
+  problemId       String
+  userId          String
+  creditsAssigned Int
+  comment         String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  votingSession VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
+  problem       Problem       @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([votingSessionId, problemId, userId])
+  @@index([votingSessionId])
+  @@map("votes")
+}
+
+model VotingLink {
+  id              String    @id @default(cuid())
+  votingSessionId String
+  token           String    @unique @default(cuid())
+  email           String
+  creditsAllowed  Int       @default(10)
+  expiresAt       DateTime?
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  votingSession VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("voting_links")
+}
+
+// Tracks voter assignment to sessions (for registered voters)
+model VoterSession {
+  id              String    @id @default(cuid())
+  votingSessionId String
+  userId          String
+  creditsAllowed  Int       @default(10)
+  openedAt        DateTime? // When they first accessed the session
+  completedAt     DateTime? // When they finished voting (used all credits or submitted)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  votingSession VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([votingSessionId, userId])
+  @@index([userId])
+  @@map("voter_sessions")
+}
+
+// ============================================================================
+// SOLUTIONS
+// ============================================================================
+
+model Solution {
+  id          String         @id @default(cuid())
+  tenantId    String
+  problemId   String
+  title       String
+  description String?        @db.Text
+  mockups     Json           @default("[]") // Array of mockup URLs/data
+  assumptions Json           @default("{}") // Usage assumptions, targets
+  status      SolutionStatus @default(DESIGNED)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([problemId])
+  @@map("solutions")
+}
+
+enum SolutionStatus {
+  DESIGNED    // Initial design
+  DEVELOPMENT // Being built
+  TESTING     // In testing
+  LIVE        // Deployed to production
+  KILLED      // Abandoned
+}
+
+// ============================================================================
+// AUDIT LOG
+// ============================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  changes   Json     @default("{}")
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}

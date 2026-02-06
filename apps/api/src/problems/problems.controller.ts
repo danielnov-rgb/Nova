@@ -1,0 +1,66 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import { ProblemsService } from './problems.service';
+import { CreateProblemDto, UpdateProblemDto, ImportProblemsDto } from './dto/problem.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+@Controller('problems')
+@UseGuards(JwtAuthGuard)
+export class ProblemsController {
+  constructor(private problemsService: ProblemsService) {}
+
+  @Post()
+  async create(@Request() req: any, @Body() dto: CreateProblemDto) {
+    return this.problemsService.create(req.user.tenantId, dto);
+  }
+
+  @Get()
+  async findAll(
+    @Request() req: any,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.problemsService.findAll(req.user.tenantId, { status, search });
+  }
+
+  @Get(':id')
+  async findOne(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Query('votingSessionId') votingSessionId?: string,
+  ) {
+    if (votingSessionId) {
+      return this.problemsService.getWithVoteSummary(req.user.tenantId, id, votingSessionId);
+    }
+    return this.problemsService.findOne(req.user.tenantId, id);
+  }
+
+  @Put(':id')
+  async update(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateProblemDto,
+  ) {
+    return this.problemsService.update(req.user.tenantId, id, dto);
+  }
+
+  @Delete(':id')
+  async remove(@Request() req: any, @Param('id') id: string) {
+    return this.problemsService.remove(req.user.tenantId, id);
+  }
+
+  @Post('import')
+  async import(@Request() req: any, @Body() dto: ImportProblemsDto) {
+    return this.problemsService.import(req.user.tenantId, dto);
+  }
+}

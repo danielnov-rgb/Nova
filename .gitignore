@@ -27,6 +27,8 @@ out/
 build
 dist
 
+# Prisma
+apps/api/generated/
 
 # Debug
 npm-debug.log*
@@ -36,3 +38,8 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# IDE
+.idea/
+*.swp
+*.swo
