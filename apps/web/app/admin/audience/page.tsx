@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { audienceApi, TargetAudience, TargetAudienceType } from "../_lib/api";
 import { samplePersonas } from "./_data/sample-personas";
+import { sampleAudiences, EnhancedAudience } from "./_data/sample-audiences";
 import { SyntheticUser } from "../_lib/types/synthetic-user";
 import PersonaCard from "./_components/PersonaCard";
 import PersonaModal from "./_components/PersonaModal";
+import { DemographicComparisonDashboard, AudienceOverview } from "./_components/DemographicCharts";
 
 const TYPE_LABELS: Record<TargetAudienceType, string> = {
   EXISTING: "Current Customers",
@@ -26,9 +28,15 @@ export default function AudiencePage() {
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<TargetAudienceType | "">("");
   const [selectedPersona, setSelectedPersona] = useState<SyntheticUser | null>(null);
+  const [usingSampleData, setUsingSampleData] = useState(false);
 
   // Get first 8 personas for preview
   const previewPersonas = samplePersonas.slice(0, 8);
+
+  // Get enhanced sample audiences for charts (always use sample data for charts)
+  const filteredEnhancedAudiences = filterType
+    ? sampleAudiences.filter(a => a.type === filterType)
+    : sampleAudiences;
 
   useEffect(() => {
     fetchAudiences();
@@ -37,10 +45,22 @@ export default function AudiencePage() {
   async function fetchAudiences() {
     try {
       setLoading(true);
+      setError(null);
       const data = await audienceApi.list(filterType || undefined);
-      setAudiences(data);
+
+      // If API returns empty, use sample data
+      if (data.length === 0) {
+        setUsingSampleData(true);
+        setAudiences([]);
+      } else {
+        setAudiences(data);
+        setUsingSampleData(false);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load audiences");
+      // On API error, fall back to sample data
+      console.log("API unavailable, using sample data");
+      setUsingSampleData(true);
+      setAudiences([]);
     } finally {
       setLoading(false);
     }
@@ -92,6 +112,15 @@ export default function AudiencePage() {
           </div>
         )}
 
+        {usingSampleData && (
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-3">
+            <InfoIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-amber-700 dark:text-amber-300 text-sm">
+              Showing sample audience data for demo purposes. Connect to API to see real data.
+            </p>
+          </div>
+        )}
+
         {/* Filter */}
         <div className="mb-6">
           <div className="flex gap-2">
@@ -121,8 +150,23 @@ export default function AudiencePage() {
           </div>
         </div>
 
-        {/* Audience Grid */}
-        {audiences.length === 0 ? (
+        {/* Demographic Comparison Dashboard */}
+        {usingSampleData && filteredEnhancedAudiences.length > 0 && (
+          <div className="mb-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Demographic Comparison
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Compare demographics across existing customers, target acquisition, and market reality
+              </p>
+            </div>
+            <DemographicComparisonDashboard audiences={filteredEnhancedAudiences} />
+          </div>
+        )}
+
+        {/* Audience Grid - Show when we have real API data */}
+        {!usingSampleData && audiences.length === 0 && (
           <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
             <UsersIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -139,8 +183,10 @@ export default function AudiencePage() {
               Add Your First Audience
             </Link>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        )}
+
+        {!usingSampleData && audiences.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {audiences.map((audience) => (
               <AudienceCard
                 key={audience.id}
@@ -312,6 +358,14 @@ function ArrowRightIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+    </svg>
+  );
+}
+
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }
