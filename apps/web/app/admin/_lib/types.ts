@@ -118,6 +118,9 @@ export interface CreateSessionDto {
   description?: string;
   deadline?: string;
   problemIds: string[];
+  voterGroupIds?: string[];
+  sprintId?: string;
+  sessionType?: "SPRINT_BASED" | "THEMATIC";
   config?: {
     defaultCredits?: number;
     creditsByRole?: Record<string, number>;
@@ -208,4 +211,144 @@ export interface VoterDetailResponse {
     problemCount: number;
   };
   problems: VoterProblemVote[];
+}
+
+// Voter Group types
+export type VoterGroupType = "LEADERSHIP" | "PROJECT_TEAM" | "EXTERNAL_USER";
+
+export interface VoterGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  type: VoterGroupType;
+  description?: string;
+  weight: number;
+  defaultCredits: number;
+  createdAt: string;
+  updatedAt: string;
+  teamCodes?: TeamCode[];
+  _count?: {
+    memberships: number;
+    teamCodes: number;
+    sessionGroups?: number;
+    votes?: number;
+  };
+}
+
+export interface TeamCode {
+  id: string;
+  voterGroupId: string;
+  code: string;
+  description?: string;
+  maxUses?: number;
+  usesCount: number;
+  expiresAt?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  voterGroup?: {
+    id: string;
+    name: string;
+    type: VoterGroupType;
+  };
+  _count?: {
+    redemptions: number;
+  };
+}
+
+export interface VoterGroupMember {
+  id: string;
+  userId: string;
+  voterGroupId: string;
+  joinedVia: "TEAM_CODE" | "EMAIL_LINK" | "ADMIN_ADD" | "PUBLIC";
+  joinedAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    role: string;
+  };
+}
+
+export interface CreateVoterGroupDto {
+  name: string;
+  type: VoterGroupType;
+  description?: string;
+  weight?: number;
+  defaultCredits?: number;
+}
+
+export interface UpdateVoterGroupDto {
+  name?: string;
+  type?: VoterGroupType;
+  description?: string;
+  weight?: number;
+  defaultCredits?: number;
+}
+
+export interface CreateTeamCodeDto {
+  code: string;
+  description?: string;
+  maxUses?: number;
+  expiresAt?: string;
+}
+
+export interface UpdateTeamCodeDto {
+  description?: string;
+  maxUses?: number;
+  expiresAt?: string;
+  isActive?: boolean;
+}
+
+// Sprint types
+export type SprintStatus = "PLANNING" | "ACTIVE" | "COMPLETED" | "ARCHIVED";
+
+export interface Sprint {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  status: SprintStatus;
+  createdAt: string;
+  updatedAt: string;
+  problems?: {
+    id: string;
+    title: string;
+    status: string;
+    tags: string[];
+    createdAt: string;
+  }[];
+  votingSessions?: {
+    id: string;
+    title: string;
+    status: SessionStatus;
+    createdAt: string;
+  }[];
+  _count?: {
+    problems: number;
+    votingSessions: number;
+  };
+}
+
+export interface CreateSprintDto {
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: SprintStatus;
+}
+
+export interface UpdateSprintDto {
+  name?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: SprintStatus;
+}
+
+export interface AssignProblemsDto {
+  problemIds: string[];
 }

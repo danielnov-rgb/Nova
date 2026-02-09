@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { sessionsApi, problemsApi } from "../../_lib/api";
-import type { Problem } from "../../_lib/types";
+import { sessionsApi, problemsApi, voterGroupsApi, sprintsApi } from "../../_lib/api";
+import type { Problem, VoterGroup, Sprint } from "../../_lib/types";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 interface SessionFormData {
   title: string;
   description: string;
   deadline: string;
   defaultCredits: number;
+  sprintId: string;
 }
 
 export default function CreateSessionPage() {
@@ -23,31 +24,41 @@ export default function CreateSessionPage() {
     description: "",
     deadline: "",
     defaultCredits: 10,
+    sprintId: "",
   });
   const [problems, setProblems] = useState<Problem[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [voterGroups, setVoterGroups] = useState<VoterGroup[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [selectedProblemIds, setSelectedProblemIds] = useState<Set<string>>(new Set());
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [loadingProblems, setLoadingProblems] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetchProblems();
+    fetchData();
   }, []);
 
-  async function fetchProblems() {
+  async function fetchData() {
     try {
-      const data = await problemsApi.list();
-      setProblems(data);
+      const [problemsData, groupsData, sprintsData] = await Promise.all([
+        problemsApi.list(),
+        voterGroupsApi.list(),
+        sprintsApi.list(),
+      ]);
+      setProblems(problemsData);
+      setVoterGroups(groupsData);
+      setSprints(sprintsData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load problems");
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
-      setLoadingProblems(false);
+      setLoadingData(false);
     }
   }
 
   function toggleProblem(id: string) {
-    setSelectedIds((prev) => {
+    setSelectedProblemIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -58,16 +69,28 @@ export default function CreateSessionPage() {
     });
   }
 
-  function selectAll() {
-    setSelectedIds(new Set(filteredProblems.map((p) => p.id)));
+  function toggleGroup(id: string) {
+    setSelectedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   }
 
-  function selectNone() {
-    setSelectedIds(new Set());
+  function selectAllProblems() {
+    setSelectedProblemIds(new Set(filteredProblems.map((p) => p.id)));
+  }
+
+  function selectNoProblems() {
+    setSelectedProblemIds(new Set());
   }
 
   async function handleSubmit() {
-    if (selectedIds.size === 0) {
+    if (selectedProblemIds.size === 0) {
       setError("Please select at least one problem");
       return;
     }
@@ -80,7 +103,9 @@ export default function CreateSessionPage() {
         title: formData.title,
         description: formData.description || undefined,
         deadline: formData.deadline || undefined,
-        problemIds: Array.from(selectedIds),
+        problemIds: Array.from(selectedProblemIds),
+        voterGroupIds: selectedGroupIds.size > 0 ? Array.from(selectedGroupIds) : undefined,
+        sprintId: formData.sprintId || undefined,
         config: { defaultCredits: formData.defaultCredits },
       });
       router.push(`/admin/sessions/${session.id}`);
@@ -97,7 +122,8 @@ export default function CreateSessionPage() {
       p.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const selectedProblems = problems.filter((p) => selectedIds.has(p.id));
+  const selectedProblems = problems.filter((p) => selectedProblemIds.has(p.id));
+  const selectedGroups = voterGroups.filter((g) => selectedGroupIds.has(g.id));
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -119,7 +145,7 @@ export default function CreateSessionPage() {
 
       {/* Progress steps */}
       <div className="flex items-center gap-2 mb-8">
-        {[1, 2, 3].map((s) => (
+        {[1, 2, 3, 4].map((s) => (
           <div key={s} className="flex items-center">
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -138,9 +164,9 @@ export default function CreateSessionPage() {
                 s
               )}
             </div>
-            {s < 3 && (
+            {s < 4 && (
               <div
-                className={`w-12 h-0.5 mx-2 ${
+                className={`w-8 h-0.5 mx-1 ${
                   s < step ? "bg-primary-500" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               />
@@ -149,8 +175,9 @@ export default function CreateSessionPage() {
         ))}
         <span className="ml-4 text-sm text-gray-600 dark:text-gray-400">
           {step === 1 && "Session Details"}
-          {step === 2 && "Select Problems"}
-          {step === 3 && "Review & Create"}
+          {step === 2 && "Voter Groups"}
+          {step === 3 && "Select Problems"}
+          {step === 4 && "Review & Create"}
         </span>
       </div>
 
@@ -216,6 +243,25 @@ export default function CreateSessionPage() {
                 />
               </div>
             </div>
+            {sprints.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Sprint (optional)
+                </label>
+                <select
+                  value={formData.sprintId}
+                  onChange={(e) => setFormData({ ...formData, sprintId: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                  <option value="">No sprint</option>
+                  {sprints.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end mt-6">
@@ -236,23 +282,110 @@ export default function CreateSessionPage() {
         </div>
       )}
 
-      {/* Step 2: Select Problems */}
+      {/* Step 2: Voter Groups */}
       {step === 2 && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Voter Groups
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            Select which voter groups can participate. Leave empty to allow all users.
+          </p>
+
+          {loadingData ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+            </div>
+          ) : voterGroups.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-500 dark:text-gray-400">No voter groups created yet.</p>
+              <Link
+                href="/admin/groups/new"
+                className="text-primary-600 dark:text-primary-400 hover:underline text-sm mt-2 inline-block"
+              >
+                Create a voter group
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {voterGroups.map((group) => (
+                <label
+                  key={group.id}
+                  className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                    selectedGroupIds.has(group.id)
+                      ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                      : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedGroupIds.has(group.id)}
+                    onChange={() => toggleGroup(group.id)}
+                    className="mt-1 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {group.name}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        group.type === "LEADERSHIP"
+                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                          : group.type === "PROJECT_TEAM"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      }`}>
+                        {group.type.replace("_", " ")}
+                      </span>
+                    </div>
+                    {group.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {group.description}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {group._count?.memberships ?? 0} members • {group.defaultCredits} credits • {group.weight}x weight
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-between mt-6">
+            <button
+              onClick={() => setStep(1)}
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => setStep(3)}
+              className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Select Problems */}
+      {step === 3 && (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Select Problems ({selectedIds.size} selected)
+              Select Problems ({selectedProblemIds.size} selected)
             </h2>
             <div className="flex gap-2">
               <button
-                onClick={selectAll}
+                onClick={selectAllProblems}
                 className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
               >
                 Select all
               </button>
               <span className="text-gray-300 dark:text-gray-600">|</span>
               <button
-                onClick={selectNone}
+                onClick={selectNoProblems}
                 className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
               >
                 Clear
@@ -268,7 +401,7 @@ export default function CreateSessionPage() {
             className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           />
 
-          {loadingProblems ? (
+          {loadingData ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
             </div>
@@ -278,14 +411,14 @@ export default function CreateSessionPage() {
                 <label
                   key={problem.id}
                   className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedIds.has(problem.id)
+                    selectedProblemIds.has(problem.id)
                       ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
                       : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   <input
                     type="checkbox"
-                    checked={selectedIds.has(problem.id)}
+                    checked={selectedProblemIds.has(problem.id)}
                     onChange={() => toggleProblem(problem.id)}
                     className="mt-1 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
                   />
@@ -316,19 +449,19 @@ export default function CreateSessionPage() {
 
           <div className="flex justify-between mt-6">
             <button
-              onClick={() => setStep(1)}
+              onClick={() => setStep(2)}
               className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
               Back
             </button>
             <button
               onClick={() => {
-                if (selectedIds.size === 0) {
+                if (selectedProblemIds.size === 0) {
                   setError("Please select at least one problem");
                   return;
                 }
                 setError(null);
-                setStep(3);
+                setStep(4);
               }}
               className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors"
             >
@@ -338,8 +471,8 @@ export default function CreateSessionPage() {
         </div>
       )}
 
-      {/* Step 3: Review & Create */}
-      {step === 3 && (
+      {/* Step 4: Review & Create */}
+      {step === 4 && (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Review & Create
@@ -357,14 +490,43 @@ export default function CreateSessionPage() {
                     {formData.description}
                   </p>
                 )}
-                <div className="flex gap-4 mt-3 text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600 dark:text-gray-400">
                   {formData.deadline && (
                     <span>Deadline: {new Date(formData.deadline).toLocaleString()}</span>
                   )}
                   <span>Default credits: {formData.defaultCredits}</span>
+                  {formData.sprintId && (
+                    <span>Sprint: {sprints.find(s => s.id === formData.sprintId)?.name}</span>
+                  )}
                 </div>
               </div>
             </div>
+
+            {selectedGroups.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  Voter Groups ({selectedGroups.length})
+                </h3>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedGroups.map((group) => (
+                      <span
+                        key={group.id}
+                        className={`text-sm px-3 py-1 rounded-full ${
+                          group.type === "LEADERSHIP"
+                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                            : group.type === "PROJECT_TEAM"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        }`}
+                      >
+                        {group.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
@@ -387,7 +549,7 @@ export default function CreateSessionPage() {
 
           <div className="flex justify-between mt-6">
             <button
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
               Back

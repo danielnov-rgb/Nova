@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RegisterVoterDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, RegisterVoterDto, RegisterWithTeamCodeDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -15,6 +15,11 @@ export class AuthController {
   @Post('register/voter')
   async registerVoter(@Body() dto: RegisterVoterDto) {
     return this.authService.registerVoter(dto);
+  }
+
+  @Post('register/team-code')
+  async registerWithTeamCode(@Body() dto: RegisterWithTeamCodeDto) {
+    return this.authService.registerWithTeamCode(dto);
   }
 
   @Post('login')

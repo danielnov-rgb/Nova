@@ -116,6 +116,112 @@ export class AuthService {
     });
   }
 
+  async registerWithTeamCode(dto: {
+    email: string;
+    password: string;
+    firstName?: string;
+    lastName?: string;
+    teamCode: string;
+  }): Promise<AuthResponseDto> {
+    // Validate team code
+    const teamCode = await this.prisma.teamCode.findUnique({
+      where: { code: dto.teamCode.toUpperCase() },
+      include: {
+        voterGroup: {
+          include: { tenant: true },
+        },
+      },
+    });
+
+    if (!teamCode) {
+      throw new UnauthorizedException('Invalid team code');
+    }
+
+    if (!teamCode.isActive) {
+      throw new UnauthorizedException('This team code has been deactivated');
+    }
+
+    if (teamCode.expiresAt && teamCode.expiresAt < new Date()) {
+      throw new UnauthorizedException('This team code has expired');
+    }
+
+    if (teamCode.maxUses && teamCode.usesCount >= teamCode.maxUses) {
+      throw new UnauthorizedException('This team code has reached its maximum uses');
+    }
+
+    // Check if user already exists
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: dto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    // Create user in the same tenant as the voter group
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Create user as VOTER in the group's tenant
+      const user = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          tenantId: teamCode.voterGroup.tenantId,
+          role: 'VOTER',
+        },
+      });
+
+      // Create membership
+      await tx.voterGroupMembership.create({
+        data: {
+          userId: user.id,
+          voterGroupId: teamCode.voterGroupId,
+          joinedVia: 'TEAM_CODE',
+        },
+      });
+
+      // Create redemption record
+      await tx.teamCodeRedemption.create({
+        data: {
+          teamCodeId: teamCode.id,
+          userId: user.id,
+        },
+      });
+
+      // Increment uses count
+      await tx.teamCode.update({
+        where: { id: teamCode.id },
+        data: { usesCount: { increment: 1 } },
+      });
+
+      return user;
+    });
+
+    // Generate JWT
+    const payload: JwtPayload = {
+      sub: result.id,
+      email: result.email,
+      tenantId: result.tenantId,
+      role: result.role,
+    };
+
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: {
+        id: result.id,
+        email: result.email,
+        firstName: result.firstName ?? undefined,
+        lastName: result.lastName ?? undefined,
+        role: result.role,
+        tenantId: result.tenantId,
+      },
+    };
+  }
+
   async registerVoter(dto: {
     email: string;
     password: string;

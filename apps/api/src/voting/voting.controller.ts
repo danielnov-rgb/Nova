@@ -54,6 +54,26 @@ export class VotingSessionsController {
     return this.votingService.getResults(req.user.tenantId, id);
   }
 
+  @Get(':id/results/by-group')
+  async getResultsByGroup(@Request() req: any, @Param('id') id: string) {
+    return this.votingService.getResultsByGroup(req.user.tenantId, id);
+  }
+
+  @Get(':id/results/consensus')
+  async getConsensusAnalysis(@Request() req: any, @Param('id') id: string) {
+    return this.votingService.getConsensusAnalysis(req.user.tenantId, id);
+  }
+
+  @Get(':id/participation')
+  async getParticipationStats(@Request() req: any, @Param('id') id: string) {
+    return this.votingService.getParticipationStats(req.user.tenantId, id);
+  }
+
+  @Get(':id/groups')
+  async getSessionGroups(@Request() req: any, @Param('id') id: string) {
+    return this.votingService.getSessionGroups(req.user.tenantId, id);
+  }
+
   // Voting Links Management
   @Post(':id/links')
   async createLink(

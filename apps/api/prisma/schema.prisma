@@ -25,12 +25,16 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users          User[]
-  clientContexts ClientContext[]
-  problems       Problem[]
-  votingSessions VotingSession[]
-  solutions      Solution[]
-  audiences      TargetAudience[]
+  users             User[]
+  clientContexts    ClientContext[]
+  problems          Problem[]
+  votingSessions    VotingSession[]
+  solutions         Solution[]
+  audiences         TargetAudience[]
+  voterGroups       VoterGroup[]
+  sprints           Sprint[]
+  weightingProfiles WeightingProfile[]
+  problemGroups     ProblemGroup[]
 
   @@map("tenants")
 }
@@ -48,9 +52,11 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  votes         Vote[]
-  voterSessions VoterSession[]
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  votes            Vote[]
+  voterSessions    VoterSession[]
+  groupMemberships VoterGroupMembership[]
+  codeRedemptions  TeamCodeRedemption[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -58,10 +64,10 @@ model User {
 }
 
 enum UserRole {
-  FDE    // Forward Deployed Engineer (super admin)
-  ADMIN  // Client admin
+  FDE // Forward Deployed Engineer (super admin)
+  ADMIN // Client admin
   MEMBER // Client team member
-  VOTER  // External voter (limited access)
+  VOTER // External voter (limited access)
 }
 
 // ============================================================================
@@ -110,8 +116,195 @@ model TargetAudience {
 
 enum TargetAudienceType {
   EXISTING // Current customer base
-  TARGET   // Desired acquisition targets
-  MARKET   // Market demographics
+  TARGET // Desired acquisition targets
+  MARKET // Market demographics
+}
+
+// ============================================================================
+// MARKET INTELLIGENCE
+// ============================================================================
+
+model MarketIntelligence {
+  id        String                   @id @default(cuid())
+  tenantId  String
+  category  MarketIntelligenceCategory
+  title     String
+  value     String?
+  source    String?
+  notes     String?                  @db.Text
+  metadata  Json                     @default("{}")
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+
+  @@index([tenantId])
+  @@index([category])
+  @@map("market_intelligence")
+}
+
+enum MarketIntelligenceCategory {
+  INDUSTRY    // Industry overview and trends
+  BENCHMARK   // Performance benchmarks
+  ECONOMIC    // Economic indicators
+  PRICING     // Pricing intelligence
+  DEMOGRAPHIC // Market demographics
+}
+
+// ============================================================================
+// COMPETITOR RESEARCH
+// ============================================================================
+
+model Competitor {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  website     String?
+  description String?  @db.Text
+  strengths   Json     @default("[]")
+  weaknesses  Json     @default("[]")
+  pricing     Json     @default("{}")
+  solutions   Json     @default("[]") // What problems they solve
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("competitors")
+}
+
+// ============================================================================
+// VOTER GROUPS & TEAM CODES
+// ============================================================================
+
+model VoterGroup {
+  id             String         @id @default(cuid())
+  tenantId       String
+  name           String
+  type           VoterGroupType
+  description    String?        @db.Text
+  weight         Float          @default(1.0) // Vote weight multiplier
+  defaultCredits Int            @default(10)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Relations
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teamCodes     TeamCode[]
+  memberships   VoterGroupMembership[]
+  sessionGroups VotingSessionGroup[]
+  votes         Vote[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("voter_groups")
+}
+
+enum VoterGroupType {
+  LEADERSHIP // Internal stakeholders, high-weight
+  PROJECT_TEAM // Strategy, marketing, design, dev teams
+  EXTERNAL_USER // Real users, external audience
+}
+
+model TeamCode {
+  id           String    @id @default(cuid())
+  voterGroupId String
+  code         String    @unique
+  description  String?
+  maxUses      Int? // null = unlimited
+  usesCount    Int       @default(0)
+  expiresAt    DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  voterGroup  VoterGroup           @relation(fields: [voterGroupId], references: [id], onDelete: Cascade)
+  redemptions TeamCodeRedemption[]
+
+  @@index([code])
+  @@map("team_codes")
+}
+
+model TeamCodeRedemption {
+  id         String   @id @default(cuid())
+  teamCodeId String
+  userId     String
+  redeemedAt DateTime @default(now())
+
+  // Relations
+  teamCode TeamCode @relation(fields: [teamCodeId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamCodeId, userId])
+  @@map("team_code_redemptions")
+}
+
+model VoterGroupMembership {
+  id           String     @id @default(cuid())
+  userId       String
+  voterGroupId String
+  joinedVia    JoinMethod
+  joinedAt     DateTime   @default(now())
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voterGroup VoterGroup @relation(fields: [voterGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, voterGroupId])
+  @@map("voter_group_memberships")
+}
+
+enum JoinMethod {
+  TEAM_CODE // Joined via team code
+  EMAIL_LINK // Joined via email invite
+  ADMIN_ADD // Added by admin
+  PUBLIC // Joined public session
+}
+
+model VotingSessionGroup {
+  id              String   @id @default(cuid())
+  votingSessionId String
+  voterGroupId    String
+  creditsOverride Int? // Override default credits for this group
+  createdAt       DateTime @default(now())
+
+  // Relations
+  votingSession VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
+  voterGroup    VoterGroup    @relation(fields: [voterGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([votingSessionId, voterGroupId])
+  @@map("voting_session_groups")
+}
+
+// ============================================================================
+// SPRINTS
+// ============================================================================
+
+model Sprint {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?      @db.Text
+  startDate   DateTime?
+  endDate     DateTime?
+  status      SprintStatus @default(PLANNING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  problems       Problem[]
+  votingSessions VotingSession[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("sprints")
+}
+
+enum SprintStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+  ARCHIVED
 }
 
 // ============================================================================
@@ -119,53 +312,138 @@ enum TargetAudienceType {
 // ============================================================================
 
 model Problem {
-  id          String                      @id @default(cuid())
+  id          String                       @id @default(cuid())
   tenantId    String
+  sprintId    String? // Optional sprint categorization
   title       String
-  description String?                     @db.Text
-  source      ProblemSource               @default(MANUAL)
-  evidence    Json                        @default("{}") // Who reported, how discovered
-  embedding   Unsupported("vector(1536)")?
-  scores      Json                        @default("{}") // Severity, feasibility, etc.
-  status      ProblemStatus               @default(DISCOVERED)
-  tags        String[]
-  createdAt   DateTime                    @default(now())
-  updatedAt   DateTime                    @updatedAt
+  description String?                      @db.Text
+  hypothesis  String?                      @db.Text // "We believe that..." statement
+
+  // Source & Evidence
+  source          ProblemSource                @default(MANUAL)
+  evidenceItems   Json                         @default("[]") // Array of EvidenceItem
+  evidenceSummary String?                      @db.Text // AI-generated summary
+  embedding       Unsupported("vector(1536)")?
+
+  // Scoring (all 11 attributes with metadata)
+  scores        Json   @default("{}") // ScoreWithMeta objects
+  priorityScore Float? // Computed from weights
+
+  // Organization
+  status         ProblemStatus @default(DISCOVERED)
+  isShortlisted  Boolean       @default(false)
+  shortlistOrder Int? // Manual ordering in shortlist
+  tags           String[]
+
+  // Metadata
+  lastScoredAt DateTime?
+  lastScoredBy String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant         Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sprint         Sprint?                   @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   votingSessions VotingSessionProblem[]
   votes          Vote[]
   solutions      Solution[]
+  groups         ProblemGroupMembership[]
 
   @@index([tenantId])
+  @@index([sprintId])
   @@index([status])
+  @@index([isShortlisted])
+  @@index([priorityScore])
   @@map("problems")
 }
 
 enum ProblemSource {
   SYNTHETIC_INTERVIEW // Generated from AI interviews
-  MANUAL              // Manually entered
-  IMPORT              // Imported from CSV/JSON
-  RESEARCH            // From competitor/market research
+  MANUAL // Manually entered
+  IMPORT // Imported from CSV/JSON
+  RESEARCH // From competitor/market research
 }
 
 enum ProblemStatus {
-  DISCOVERED  // Initial discovery
+  DISCOVERED // Initial discovery
   SHORTLISTED // Selected for consideration
-  BACKLOG     // In the problem backlog
+  BACKLOG // In the problem backlog
   IN_PROGRESS // Being worked on
-  SOLVED      // Solution implemented
-  DISCARDED   // Not pursuing
+  SOLVED // Solution implemented
+  DISCARDED // Not pursuing
+}
+
+// ============================================================================
+// WEIGHTING PROFILES
+// ============================================================================
+
+model WeightingProfile {
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isDefault   Boolean @default(false)
+  weights     Json // Weight values for each scoring attribute
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("weighting_profiles")
+}
+
+// ============================================================================
+// PROBLEM GROUPS
+// ============================================================================
+
+model ProblemGroup {
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  color       String? // Hex color for UI
+  icon        String? // Icon name
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  problems ProblemGroupMembership[]
+
+  @@index([tenantId])
+  @@map("problem_groups")
+}
+
+model ProblemGroupMembership {
+  id        String   @id @default(cuid())
+  problemId String
+  groupId   String
+  addedAt   DateTime @default(now())
+  addedBy   String?
+
+  // Relations
+  problem Problem      @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  group   ProblemGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, groupId])
+  @@index([problemId])
+  @@index([groupId])
+  @@map("problem_group_memberships")
 }
 
 model VotingSession {
   id             String              @id @default(cuid())
   tenantId       String
+  sprintId       String? // Optional: associate with specific sprint
   title          String
   description    String?             @db.Text
   deadline       DateTime?
   status         VotingSessionStatus @default(DRAFT)
+  sessionType    SessionType         @default(THEMATIC)
   config         Json                @default("{}") // Credit allocations per role, etc.
   isPublic       Boolean             @default(false) // Allow public registration
   publicToken    String?             @unique // Shareable token for public access
@@ -175,31 +453,39 @@ model VotingSession {
 
   // Relations
   tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sprint        Sprint?                @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   problems      VotingSessionProblem[]
   votes         Vote[]
   links         VotingLink[]
   voterSessions VoterSession[]
+  groups        VotingSessionGroup[]
 
   @@index([tenantId])
+  @@index([sprintId])
   @@index([status])
   @@index([publicToken])
   @@map("voting_sessions")
 }
 
+enum SessionType {
+  SPRINT_BASED // Single focus area
+  THEMATIC // Mixed problems from multiple areas
+}
+
 enum VotingSessionStatus {
-  DRAFT    // Being set up
-  ACTIVE   // Open for voting
-  CLOSED   // Voting complete
+  DRAFT // Being set up
+  ACTIVE // Open for voting
+  CLOSED // Voting complete
   ARCHIVED // Historical record
 }
 
 model VotingSessionProblem {
-  id               String   @id @default(cuid())
-  votingSessionId  String
-  problemId        String
-  preScore         Float?   // System-calculated score before voting
-  displayOrder     Int      @default(0)
-  createdAt        DateTime @default(now())
+  id              String   @id @default(cuid())
+  votingSessionId String
+  problemId       String
+  preScore        Float? // System-calculated score before voting
+  displayOrder    Int      @default(0)
+  createdAt       DateTime @default(now())
 
   // Relations
   votingSession VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
@@ -214,6 +500,7 @@ model Vote {
   votingSessionId String
   problemId       String
   userId          String
+  voterGroupId    String? // Track which group this voter belonged to
   creditsAssigned Int
   comment         String?  @db.Text
   createdAt       DateTime @default(now())
@@ -223,9 +510,11 @@ model Vote {
   votingSession VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
   problem       Problem       @relation(fields: [problemId], references: [id], onDelete: Cascade)
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voterGroup    VoterGroup?   @relation(fields: [voterGroupId], references: [id], onDelete: SetNull)
 
   @@unique([votingSessionId, problemId, userId])
   @@index([votingSessionId])
+  @@index([voterGroupId])
   @@map("votes")
 }
 
@@ -267,6 +556,34 @@ model VoterSession {
 }
 
 // ============================================================================
+// PROJECT MANAGEMENT
+// ============================================================================
+
+model ProjectItem {
+  id          String            @id @default(cuid())
+  tenantId    String
+  problemId   String? // Optional link to Problem
+  title       String
+  description String?           @db.Text
+  status      ProjectItemStatus @default(BACKLOG)
+  priority    Int               @default(0)
+  assignee    String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("project_items")
+}
+
+enum ProjectItemStatus {
+  BACKLOG
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+// ============================================================================
 // SOLUTIONS
 // ============================================================================
 
@@ -292,11 +609,11 @@ model Solution {
 }
 
 enum SolutionStatus {
-  DESIGNED    // Initial design
+  DESIGNED // Initial design
   DEVELOPMENT // Being built
-  TESTING     // In testing
-  LIVE        // Deployed to production
-  KILLED      // Abandoned
+  TESTING // In testing
+  LIVE // Deployed to production
+  KILLED // Abandoned
 }
 
 // ============================================================================

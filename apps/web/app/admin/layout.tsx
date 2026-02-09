@@ -66,9 +66,33 @@ export default function AdminLayout({
                 </span>
               </div>
 
-              <nav className="flex items-center gap-1">
+              <nav className="flex items-center gap-1 overflow-x-auto">
+                <NavLink href="/admin/onboarding" current={pathname.startsWith("/admin/onboarding")}>
+                  Onboarding
+                </NavLink>
+                <NavLink href="/admin/audience" current={pathname.startsWith("/admin/audience")}>
+                  Audience
+                </NavLink>
+                <NavLink href="/admin/market" current={pathname.startsWith("/admin/market")}>
+                  Market
+                </NavLink>
+                <NavLink href="/admin/problems" current={pathname.startsWith("/admin/problems")}>
+                  Problems
+                </NavLink>
                 <NavLink href="/admin/sessions" current={pathname.startsWith("/admin/sessions")}>
-                  Voting Sessions
+                  Voting
+                </NavLink>
+                <NavLink href="/admin/competitors" current={pathname.startsWith("/admin/competitors")}>
+                  Competitors
+                </NavLink>
+                <NavLink href="/admin/projects" current={pathname.startsWith("/admin/projects")}>
+                  Projects
+                </NavLink>
+                <NavLink href="/admin/solutions" current={pathname.startsWith("/admin/solutions")}>
+                  Solutions
+                </NavLink>
+                <NavLink href="/admin/groups" current={pathname.startsWith("/admin/groups")}>
+                  Groups
                 </NavLink>
               </nav>
             </div>

@@ -208,7 +208,7 @@ export const features: FeatureModule[] = [
     description:
       "A transparent, evidence-based voting system where team members allocate credits to problems they believe matter most. Full audit trail of who voted for what and why.",
     status: "live",
-    demoUrl: "/vote/cml9lcbgm000tfmcbt485g5nz",
+    // No demoUrl - live feature requires manual demo setup via /contact
     problemStatement: {
       problem: "Prioritization meetings devolve into political battles where the loudest voice or highest title wins.",
       consequence: "Teams build features that don't move the needle because decisions were made on politics, not evidence.",

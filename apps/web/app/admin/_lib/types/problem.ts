@@ -529,51 +529,51 @@ export function csvRowToProblem(
     groupIds: row.group_ids ? row.group_ids.split(',').map(g => g.trim()) : [],
     scores: {
       applicability: {
-        value: parseInt(row.applicability) || 0,
+        value: parseInt(row.applicability || '0') || 0,
         justification: row.applicability_justification || undefined,
         source: 'IMPORT',
       },
       severity: {
-        value: parseInt(row.severity) || 0,
+        value: parseInt(row.severity || '0') || 0,
         justification: row.severity_justification || undefined,
         source: 'IMPORT',
       },
       frequency: {
-        value: parseInt(row.frequency) || 0,
+        value: parseInt(row.frequency || '0') || 0,
         justification: row.frequency_justification || undefined,
         source: 'IMPORT',
       },
       willingnessToPay: {
-        value: parseInt(row.willingness_to_pay) || 0,
+        value: parseInt(row.willingness_to_pay || '0') || 0,
         justification: row.wtp_justification || undefined,
         source: 'IMPORT',
       },
       retentionImpact: {
-        value: parseInt(row.retention_impact) || 0,
+        value: parseInt(row.retention_impact || '0') || 0,
         source: 'IMPORT',
       },
       acquisitionPotential: {
-        value: parseInt(row.acquisition_potential) || 0,
+        value: parseInt(row.acquisition_potential || '0') || 0,
         source: 'IMPORT',
       },
       viralCoefficient: {
-        value: parseInt(row.viral_coefficient) || 0,
+        value: parseInt(row.viral_coefficient || '0') || 0,
         source: 'IMPORT',
       },
       strategicFit: {
-        value: parseInt(row.strategic_fit) || 0,
+        value: parseInt(row.strategic_fit || '0') || 0,
         source: 'IMPORT',
       },
       feasibility: {
-        value: parseInt(row.feasibility) || 0,
+        value: parseInt(row.feasibility || '0') || 0,
         source: 'IMPORT',
       },
       timeToValue: {
-        value: parseInt(row.time_to_value) || 0,
+        value: parseInt(row.time_to_value || '0') || 0,
         source: 'IMPORT',
       },
       riskLevel: {
-        value: parseInt(row.risk_level) || 0,
+        value: parseInt(row.risk_level || '0') || 0,
         source: 'IMPORT',
       },
     },

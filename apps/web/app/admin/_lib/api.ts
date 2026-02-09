@@ -13,6 +13,17 @@ import {
   LoginResponse,
   SessionVotersResponse,
   VoterDetailResponse,
+  VoterGroup,
+  TeamCode,
+  VoterGroupMember,
+  CreateVoterGroupDto,
+  UpdateVoterGroupDto,
+  CreateTeamCodeDto,
+  UpdateTeamCodeDto,
+  Sprint,
+  CreateSprintDto,
+  UpdateSprintDto,
+  AssignProblemsDto,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -66,6 +77,84 @@ export const authApi = {
     apiRequest<{ user: { id: string; email: string; role: string; tenantId: string } }>("/auth/me"),
 };
 
+// Types for group results
+export interface GroupRanking {
+  problemId: string;
+  title: string;
+  totalCredits: number;
+  weightedCredits: number;
+  voterCount: number;
+  rank: number;
+}
+
+export interface GroupResult {
+  group: {
+    id: string;
+    name: string;
+    type: string;
+    weight: number;
+  };
+  totalVoters: number;
+  totalVotes: number;
+  totalCredits: number;
+  rankings: GroupRanking[];
+}
+
+export interface ResultsByGroup {
+  session: {
+    id: string;
+    title: string;
+    status: string;
+  };
+  groups: GroupResult[];
+}
+
+export interface ConsensusAnalysis {
+  session: {
+    id: string;
+    title: string;
+    status: string;
+  };
+  hasMultipleGroups: boolean;
+  groupCount?: number;
+  consensus: {
+    problem: { id: string; title: string };
+    avgRank: number;
+    agreement: string;
+    ranksByGroup: { groupId: string; groupName: string; rank: number; credits: number }[];
+  }[];
+  conflicts: {
+    problem: { id: string; title: string };
+    avgRank: number;
+    rankDiff: number;
+    ranksByGroup: { groupId: string; groupName: string; rank: number; credits: number }[];
+  }[];
+}
+
+export interface ParticipationStats {
+  session: {
+    id: string;
+    title: string;
+    status: string;
+  };
+  groups: {
+    group: { id: string; name: string; type: string };
+    totalMembers: number;
+    votersParticipated: number;
+    participationRate: number;
+    totalVotes: number;
+    totalCreditsUsed: number;
+  }[];
+}
+
+export interface SessionGroup {
+  id: string;
+  name: string;
+  type: string;
+  weight: number;
+  defaultCredits: number;
+}
+
 // Sessions API
 export const sessionsApi = {
   list: () => apiRequest<VotingSessionListItem[]>("/voting/sessions"),
@@ -86,6 +175,18 @@ export const sessionsApi = {
 
   getResults: (id: string) =>
     apiRequest<SessionResults>(`/voting/sessions/${id}/results`),
+
+  getResultsByGroup: (id: string) =>
+    apiRequest<ResultsByGroup>(`/voting/sessions/${id}/results/by-group`),
+
+  getConsensusAnalysis: (id: string) =>
+    apiRequest<ConsensusAnalysis>(`/voting/sessions/${id}/results/consensus`),
+
+  getParticipationStats: (id: string) =>
+    apiRequest<ParticipationStats>(`/voting/sessions/${id}/participation`),
+
+  getSessionGroups: (id: string) =>
+    apiRequest<SessionGroup[]>(`/voting/sessions/${id}/groups`),
 };
 
 // Links API
@@ -106,6 +207,45 @@ export const linksApi = {
     }),
 };
 
+// CSV Import types
+export interface CsvParseResult {
+  valid: boolean;
+  rowCount: number;
+  errors: { row: number; field: string; message: string }[];
+  warnings: { row: number; field: string; message: string }[];
+  problems: {
+    row: number;
+    title: string;
+    description?: string;
+    tags: string[];
+    evidence: Record<string, any>;
+    scores: Record<string, number>;
+  }[];
+}
+
+export interface CsvImportResult {
+  imported: number;
+  warnings: { row: number; field: string; message: string }[];
+}
+
+// Create/Update Problem DTOs
+export interface CreateProblemDto {
+  title: string;
+  description?: string;
+  tags?: string[];
+  scores?: Record<string, number>;
+  evidence?: Record<string, unknown>;
+}
+
+export interface UpdateProblemDto {
+  title?: string;
+  description?: string;
+  status?: string;
+  tags?: string[];
+  scores?: Record<string, number>;
+  evidence?: Record<string, unknown>;
+}
+
 // Problems API
 export const problemsApi = {
   list: (params?: { status?: string; search?: string }) => {
@@ -118,6 +258,35 @@ export const problemsApi = {
   },
 
   get: (id: string) => apiRequest<Problem>(`/problems/${id}`),
+
+  create: (data: CreateProblemDto) =>
+    apiRequest<Problem>("/problems", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateProblemDto) =>
+    apiRequest<Problem>(`/problems/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/problems/${id}`, {
+      method: "DELETE",
+    }),
+
+  previewCsvImport: (csvContent: string) =>
+    apiRequest<CsvParseResult>("/problems/import/csv/preview", {
+      method: "POST",
+      body: JSON.stringify({ csvContent }),
+    }),
+
+  importCsv: (csvContent: string, sprintId?: string) =>
+    apiRequest<CsvImportResult>("/problems/import/csv", {
+      method: "POST",
+      body: JSON.stringify({ csvContent, sprintId }),
+    }),
 };
 
 // Voters API (Admin view of session voters)
@@ -127,4 +296,486 @@ export const votersApi = {
 
   getDetail: (sessionId: string, voterId: string) =>
     apiRequest<VoterDetailResponse>(`/voting/sessions/${sessionId}/voters/${voterId}`),
+};
+
+// Voter Groups API
+export const voterGroupsApi = {
+  list: () => apiRequest<VoterGroup[]>("/voter-groups"),
+
+  get: (id: string) => apiRequest<VoterGroup>(`/voter-groups/${id}`),
+
+  create: (data: CreateVoterGroupDto) =>
+    apiRequest<VoterGroup>("/voter-groups", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateVoterGroupDto) =>
+    apiRequest<VoterGroup>(`/voter-groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/voter-groups/${id}`, {
+      method: "DELETE",
+    }),
+
+  getMembers: (id: string) =>
+    apiRequest<VoterGroupMember[]>(`/voter-groups/${id}/members`),
+
+  createTeamCode: (groupId: string, data: CreateTeamCodeDto) =>
+    apiRequest<TeamCode>(`/voter-groups/${groupId}/codes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// Team Codes API
+export const teamCodesApi = {
+  list: () => apiRequest<TeamCode[]>("/team-codes"),
+
+  update: (id: string, data: UpdateTeamCodeDto) =>
+    apiRequest<TeamCode>(`/team-codes/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/team-codes/${id}`, {
+      method: "DELETE",
+    }),
+};
+
+// Sprints API
+export const sprintsApi = {
+  list: () => apiRequest<Sprint[]>("/sprints"),
+
+  get: (id: string) => apiRequest<Sprint>(`/sprints/${id}`),
+
+  create: (data: CreateSprintDto) =>
+    apiRequest<Sprint>("/sprints", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateSprintDto) =>
+    apiRequest<Sprint>(`/sprints/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/sprints/${id}`, {
+      method: "DELETE",
+    }),
+
+  assignProblems: (id: string, data: AssignProblemsDto) =>
+    apiRequest<Sprint>(`/sprints/${id}/problems`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  unassignProblems: (id: string, data: AssignProblemsDto) =>
+    apiRequest<Sprint>(`/sprints/${id}/problems`, {
+      method: "DELETE",
+      body: JSON.stringify(data),
+    }),
+
+  getUnassignedProblems: () =>
+    apiRequest<Problem[]>("/sprints/unassigned-problems"),
+};
+
+// Client Onboarding types
+export interface ClientContext {
+  id: string;
+  tenantId: string;
+  objectives?: string;
+  businessModel?: string;
+  competitiveAdvantages?: string;
+  existingProblems?: string;
+  designSystemUrl?: string;
+  gitRepoUrl?: string;
+  terminologyGlossary: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateClientContextDto {
+  objectives?: string;
+  businessModel?: string;
+  competitiveAdvantages?: string;
+  existingProblems?: string;
+  designSystemUrl?: string;
+  gitRepoUrl?: string;
+  terminologyGlossary?: Record<string, string>;
+}
+
+// Onboarding API
+export const onboardingApi = {
+  get: () => apiRequest<ClientContext>("/onboarding"),
+
+  update: (data: UpdateClientContextDto) =>
+    apiRequest<ClientContext>("/onboarding", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  getTerminology: () =>
+    apiRequest<Record<string, string>>("/onboarding/terminology"),
+
+  updateTerminology: (terminology: Record<string, string>) =>
+    apiRequest<ClientContext>("/onboarding/terminology", {
+      method: "PUT",
+      body: JSON.stringify(terminology),
+    }),
+
+  addTerm: (term: string, definition: string) =>
+    apiRequest<ClientContext>("/onboarding/terminology/term", {
+      method: "POST",
+      body: JSON.stringify({ term, definition }),
+    }),
+
+  removeTerm: (term: string) =>
+    apiRequest<ClientContext>(`/onboarding/terminology/term/${encodeURIComponent(term)}`, {
+      method: "DELETE",
+    }),
+};
+
+// Target Audience types
+export type TargetAudienceType = "EXISTING" | "TARGET" | "MARKET";
+
+export interface SegmentDefinition {
+  name: string;
+  description?: string;
+  demographics?: {
+    ageRange?: string;
+    location?: string;
+    income?: string;
+    profession?: string;
+    industry?: string;
+  };
+  size?: number;
+  notes?: string;
+}
+
+export interface TargetAudience {
+  id: string;
+  tenantId: string;
+  name: string;
+  type: TargetAudienceType;
+  segments: SegmentDefinition[];
+  targets: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAudienceDto {
+  name: string;
+  type: TargetAudienceType;
+  description?: string;
+  segments?: SegmentDefinition[];
+  targets?: Record<string, number>;
+}
+
+export interface UpdateAudienceDto {
+  name?: string;
+  type?: TargetAudienceType;
+  description?: string;
+  segments?: SegmentDefinition[];
+  targets?: Record<string, number>;
+}
+
+// Audience API
+export const audienceApi = {
+  list: (type?: TargetAudienceType) => {
+    const query = type ? `?type=${type}` : "";
+    return apiRequest<TargetAudience[]>(`/audience${query}`);
+  },
+
+  get: (id: string) => apiRequest<TargetAudience>(`/audience/${id}`),
+
+  create: (data: CreateAudienceDto) =>
+    apiRequest<TargetAudience>("/audience", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateAudienceDto) =>
+    apiRequest<TargetAudience>(`/audience/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/audience/${id}`, {
+      method: "DELETE",
+    }),
+};
+
+// Market Intelligence types
+export type MarketIntelligenceCategory = "INDUSTRY" | "BENCHMARK" | "ECONOMIC" | "PRICING" | "DEMOGRAPHIC";
+
+export interface MarketIntelligence {
+  id: string;
+  tenantId: string;
+  category: MarketIntelligenceCategory;
+  title: string;
+  value?: string;
+  source?: string;
+  notes?: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMarketIntelligenceDto {
+  category: MarketIntelligenceCategory;
+  title: string;
+  value?: string;
+  source?: string;
+  notes?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateMarketIntelligenceDto {
+  category?: MarketIntelligenceCategory;
+  title?: string;
+  value?: string;
+  source?: string;
+  notes?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// Market Intelligence API
+export const marketApi = {
+  list: (category?: MarketIntelligenceCategory) => {
+    const query = category ? `?category=${category}` : "";
+    return apiRequest<MarketIntelligence[]>(`/market${query}`);
+  },
+
+  get: (id: string) => apiRequest<MarketIntelligence>(`/market/${id}`),
+
+  create: (data: CreateMarketIntelligenceDto) =>
+    apiRequest<MarketIntelligence>("/market", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateMarketIntelligenceDto) =>
+    apiRequest<MarketIntelligence>(`/market/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/market/${id}`, {
+      method: "DELETE",
+    }),
+};
+
+// Competitor types
+export interface Competitor {
+  id: string;
+  tenantId: string;
+  name: string;
+  website?: string;
+  description?: string;
+  strengths: string[];
+  weaknesses: string[];
+  pricing: Record<string, unknown>;
+  solutions: string[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCompetitorDto {
+  name: string;
+  website?: string;
+  description?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  pricing?: Record<string, unknown>;
+  solutions?: string[];
+  notes?: string;
+}
+
+export interface UpdateCompetitorDto {
+  name?: string;
+  website?: string;
+  description?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  pricing?: Record<string, unknown>;
+  solutions?: string[];
+  notes?: string;
+}
+
+// Competitors API
+export const competitorsApi = {
+  list: () => apiRequest<Competitor[]>("/competitors"),
+
+  get: (id: string) => apiRequest<Competitor>(`/competitors/${id}`),
+
+  create: (data: CreateCompetitorDto) =>
+    apiRequest<Competitor>("/competitors", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateCompetitorDto) =>
+    apiRequest<Competitor>(`/competitors/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/competitors/${id}`, {
+      method: "DELETE",
+    }),
+};
+
+// Project Management types
+export type ProjectItemStatus = "BACKLOG" | "IN_PROGRESS" | "REVIEW" | "DONE";
+
+export interface ProjectItem {
+  id: string;
+  tenantId: string;
+  problemId?: string;
+  title: string;
+  description?: string;
+  status: ProjectItemStatus;
+  priority: number;
+  assignee?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectItemDto {
+  title: string;
+  description?: string;
+  problemId?: string;
+  status?: ProjectItemStatus;
+  priority?: number;
+  assignee?: string;
+}
+
+export interface UpdateProjectItemDto {
+  title?: string;
+  description?: string;
+  problemId?: string;
+  status?: ProjectItemStatus;
+  priority?: number;
+  assignee?: string;
+}
+
+export interface ProjectItemsByStatus {
+  BACKLOG: ProjectItem[];
+  IN_PROGRESS: ProjectItem[];
+  REVIEW: ProjectItem[];
+  DONE: ProjectItem[];
+}
+
+// Projects API
+export const projectsApi = {
+  list: (status?: ProjectItemStatus) => {
+    const query = status ? `?status=${status}` : "";
+    return apiRequest<ProjectItem[]>(`/projects${query}`);
+  },
+
+  getByStatus: () => apiRequest<ProjectItemsByStatus>("/projects/by-status"),
+
+  get: (id: string) => apiRequest<ProjectItem>(`/projects/${id}`),
+
+  create: (data: CreateProjectItemDto) =>
+    apiRequest<ProjectItem>("/projects", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateProjectItemDto) =>
+    apiRequest<ProjectItem>(`/projects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/projects/${id}`, {
+      method: "DELETE",
+    }),
+
+  reorder: (items: { id: string; status: ProjectItemStatus; priority: number }[]) =>
+    apiRequest<{ success: boolean }>("/projects/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    }),
+};
+
+// Solution Design types
+export type SolutionStatus = "DESIGNED" | "DEVELOPMENT" | "TESTING" | "LIVE" | "KILLED";
+
+export interface Solution {
+  id: string;
+  tenantId: string;
+  problemId: string;
+  title: string;
+  description?: string;
+  mockups: string[];
+  assumptions: Record<string, unknown>;
+  status: SolutionStatus;
+  problem?: {
+    id: string;
+    title: string;
+    description?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSolutionDto {
+  problemId: string;
+  title: string;
+  description?: string;
+  mockups?: string[];
+  assumptions?: Record<string, unknown>;
+  status?: SolutionStatus;
+}
+
+export interface UpdateSolutionDto {
+  title?: string;
+  description?: string;
+  mockups?: string[];
+  assumptions?: Record<string, unknown>;
+  status?: SolutionStatus;
+}
+
+// Solutions API
+export const solutionsApi = {
+  list: (status?: SolutionStatus) => {
+    const query = status ? `?status=${status}` : "";
+    return apiRequest<Solution[]>(`/solutions${query}`);
+  },
+
+  get: (id: string) => apiRequest<Solution>(`/solutions/${id}`),
+
+  getByProblem: (problemId: string) =>
+    apiRequest<Solution[]>(`/solutions/by-problem/${problemId}`),
+
+  create: (data: CreateSolutionDto) =>
+    apiRequest<Solution>("/solutions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateSolutionDto) =>
+    apiRequest<Solution>(`/solutions/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/solutions/${id}`, {
+      method: "DELETE",
+    }),
 };

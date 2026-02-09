@@ -27,6 +27,19 @@ export class CreateVotingSessionDto {
   @IsString({ each: true })
   problemIds: string[]; // Problems to include in this session
 
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  voterGroupIds?: string[]; // Voter groups allowed to participate
+
+  @IsString()
+  @IsOptional()
+  sprintId?: string; // Optional sprint association
+
+  @IsString()
+  @IsOptional()
+  sessionType?: 'SPRINT_BASED' | 'THEMATIC'; // Session type
+
   @IsObject()
   @IsOptional()
   config?: {

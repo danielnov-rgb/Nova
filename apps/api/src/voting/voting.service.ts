@@ -14,6 +14,38 @@ import {
 } from './dto/voting.dto';
 import { randomBytes } from 'crypto';
 
+// Types for group results
+interface GroupRanking {
+  problemId: string;
+  title: string;
+  totalCredits: number;
+  weightedCredits: number;
+  voterCount: number;
+  rank: number;
+}
+
+interface GroupResult {
+  group: {
+    id: string;
+    name: string;
+    type: string;
+    weight: number;
+  };
+  totalVoters: number;
+  totalVotes: number;
+  totalCredits: number;
+  rankings: GroupRanking[];
+}
+
+interface ResultsByGroup {
+  session: {
+    id: string;
+    title: string;
+    status: string;
+  };
+  groups: GroupResult[];
+}
+
 @Injectable()
 export class VotingService {
   constructor(private prisma: PrismaService) {}
@@ -21,40 +53,50 @@ export class VotingService {
   // ========== VOTING SESSIONS ==========
 
   async createSession(tenantId: string, dto: CreateVotingSessionDto) {
-    return this.prisma.$transaction(async (tx) => {
-      // Generate public token if session is public
-      const publicToken = dto.isPublic
-        ? randomBytes(16).toString('hex')
-        : null;
+    // Generate public token if session is public
+    const publicToken = dto.isPublic
+      ? randomBytes(16).toString('hex')
+      : null;
 
-      // Create the session
-      const session = await tx.votingSession.create({
-        data: {
-          tenantId,
-          title: dto.title,
-          description: dto.description,
-          deadline: dto.deadline ? new Date(dto.deadline) : null,
-          config: dto.config || {},
-          status: 'DRAFT',
-          isPublic: dto.isPublic || false,
-          publicToken,
-          defaultCredits: dto.defaultCredits || 10,
-        },
-      });
-
-      // Link problems to session
-      if (dto.problemIds?.length) {
-        await tx.votingSessionProblem.createMany({
-          data: dto.problemIds.map((problemId, index) => ({
-            votingSessionId: session.id,
-            problemId,
-            displayOrder: index,
-          })),
-        });
-      }
-
-      return this.getSession(tenantId, session.id);
+    // Create the session
+    const session = await this.prisma.votingSession.create({
+      data: {
+        tenantId,
+        title: dto.title,
+        description: dto.description,
+        deadline: dto.deadline ? new Date(dto.deadline) : null,
+        config: dto.config || {},
+        status: 'DRAFT',
+        isPublic: dto.isPublic || false,
+        publicToken,
+        defaultCredits: dto.defaultCredits || 10,
+        sprintId: dto.sprintId || null,
+        sessionType: dto.sessionType || 'THEMATIC',
+      },
     });
+
+    // Link problems to session
+    if (dto.problemIds?.length) {
+      await this.prisma.votingSessionProblem.createMany({
+        data: dto.problemIds.map((problemId, index) => ({
+          votingSessionId: session.id,
+          problemId,
+          displayOrder: index,
+        })),
+      });
+    }
+
+    // Link voter groups to session
+    if (dto.voterGroupIds?.length) {
+      await this.prisma.votingSessionGroup.createMany({
+        data: dto.voterGroupIds.map((voterGroupId) => ({
+          votingSessionId: session.id,
+          voterGroupId,
+        })),
+      });
+    }
+
+    return this.getSession(tenantId, session.id);
   }
 
   async getSession(tenantId: string, sessionId: string) {
@@ -259,8 +301,8 @@ export class VotingService {
         id: sp.problem.id,
         title: sp.problem.title,
         description: sp.problem.description,
-        evidence: sp.problem.evidence as Record<string, any>,
-        scores: sp.problem.scores as Record<string, number>,
+        evidenceItems: sp.problem.evidenceItems as any[],
+        scores: sp.problem.scores as Record<string, any>,
         tags: sp.problem.tags,
         myVote: myVote
           ? { credits: myVote.creditsAssigned, comment: myVote.comment }
@@ -347,6 +389,9 @@ export class VotingService {
       });
     }
 
+    // Find user's voter group for this session
+    const voterGroupId = await this.findUserVoterGroup(link.votingSessionId, voter.id);
+
     // Upsert vote
     if (existingVoteOnProblem) {
       return this.prisma.vote.update({
@@ -354,6 +399,7 @@ export class VotingService {
         data: {
           creditsAssigned: dto.credits,
           comment: dto.comment,
+          voterGroupId,
         },
       });
     } else {
@@ -364,6 +410,7 @@ export class VotingService {
           userId: voter.id,
           creditsAssigned: dto.credits,
           comment: dto.comment,
+          voterGroupId,
         },
       });
     }
@@ -563,8 +610,8 @@ export class VotingService {
         id: sp.problem.id,
         title: sp.problem.title,
         description: sp.problem.description,
-        evidence: sp.problem.evidence as Record<string, any>,
-        scores: sp.problem.scores as Record<string, number>,
+        evidenceItems: sp.problem.evidenceItems as any[],
+        scores: sp.problem.scores as Record<string, any>,
         tags: sp.problem.tags,
         myVote: myVote
           ? { credits: myVote.creditsAssigned, comment: myVote.comment }
@@ -641,6 +688,9 @@ export class VotingService {
       });
     }
 
+    // Find user's voter group membership for this session
+    const voterGroupId = await this.findUserVoterGroup(sessionId, userId);
+
     // Upsert vote
     if (existingVoteOnProblem) {
       return this.prisma.vote.update({
@@ -648,6 +698,7 @@ export class VotingService {
         data: {
           creditsAssigned: dto.credits,
           comment: dto.comment,
+          voterGroupId, // Update group if changed
         },
       });
     } else {
@@ -658,9 +709,36 @@ export class VotingService {
           userId,
           creditsAssigned: dto.credits,
           comment: dto.comment,
+          voterGroupId,
         },
       });
     }
+  }
+
+  // Helper to find user's voter group for a session
+  private async findUserVoterGroup(sessionId: string, userId: string): Promise<string | null> {
+    // Get voter groups linked to this session
+    const sessionGroups = await this.prisma.votingSessionGroup.findMany({
+      where: { votingSessionId: sessionId },
+      select: { voterGroupId: true },
+    });
+
+    if (sessionGroups.length === 0) {
+      return null; // No groups linked to session
+    }
+
+    const groupIds = sessionGroups.map((sg) => sg.voterGroupId);
+
+    // Find user's membership in any of these groups
+    const membership = await this.prisma.voterGroupMembership.findFirst({
+      where: {
+        userId,
+        voterGroupId: { in: groupIds },
+      },
+      orderBy: { joinedAt: 'desc' }, // Take most recent if multiple
+    });
+
+    return membership?.voterGroupId || null;
   }
 
   async markSessionCompleteForUser(sessionId: string, userId: string) {
@@ -970,6 +1048,297 @@ export class VotingService {
         problemCount: session.problems.length,
       },
       problems: problemsWithVotes,
+    };
+  }
+
+  // ========== RESULTS BY GROUP ==========
+
+  async getSessionGroups(tenantId: string, sessionId: string) {
+    const session = await this.prisma.votingSession.findFirst({
+      where: { id: sessionId, tenantId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Voting session not found');
+    }
+
+    const sessionGroups = await this.prisma.votingSessionGroup.findMany({
+      where: { votingSessionId: sessionId },
+      include: {
+        voterGroup: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            weight: true,
+            defaultCredits: true,
+          },
+        },
+      },
+    });
+
+    return sessionGroups.map((sg) => sg.voterGroup);
+  }
+
+  async getResultsByGroup(tenantId: string, sessionId: string): Promise<ResultsByGroup> {
+    // Verify session exists
+    const session = await this.prisma.votingSession.findFirst({
+      where: { id: sessionId, tenantId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Voting session not found');
+    }
+
+    // Get problems for this session
+    const sessionProblems = await this.prisma.votingSessionProblem.findMany({
+      where: { votingSessionId: sessionId },
+      include: { problem: true },
+    });
+
+    // Get all votes for this session
+    const votes = await this.prisma.vote.findMany({
+      where: { votingSessionId: sessionId },
+    });
+
+    // Get groups linked to this session
+    const sessionGroups = await this.prisma.votingSessionGroup.findMany({
+      where: { votingSessionId: sessionId },
+      include: { voterGroup: true },
+    });
+
+    const groups = sessionGroups.map((sg) => sg.voterGroup);
+
+    // Build results per group
+    const groupResults: GroupResult[] = groups.map((group) => {
+      const groupVotes = votes.filter((v) => v.voterGroupId === group.id);
+
+      const problemRankings = sessionProblems.map((sp) => {
+        const problemVotes = groupVotes.filter((v) => v.problemId === sp.problemId);
+        const totalCredits = problemVotes.reduce((acc, v) => acc + v.creditsAssigned, 0);
+        const weightedCredits = totalCredits * group.weight;
+
+        return {
+          problemId: sp.problem.id,
+          title: sp.problem.title,
+          totalCredits,
+          weightedCredits,
+          voterCount: problemVotes.length,
+        };
+      });
+
+      // Sort by total credits
+      problemRankings.sort((a, b) => b.totalCredits - a.totalCredits);
+
+      // Add rank
+      const rankedProblems: GroupRanking[] = problemRankings.map((p, i) => ({
+        ...p,
+        rank: i + 1,
+      }));
+
+      return {
+        group: {
+          id: group.id,
+          name: group.name,
+          type: group.type,
+          weight: group.weight,
+        },
+        totalVoters: new Set(groupVotes.map((v) => v.userId)).size,
+        totalVotes: groupVotes.length,
+        totalCredits: groupVotes.reduce((acc, v) => acc + v.creditsAssigned, 0),
+        rankings: rankedProblems,
+      };
+    });
+
+    // Also include votes without a group (ungrouped voters)
+    const ungroupedVotes = votes.filter((v) => !v.voterGroupId);
+    if (ungroupedVotes.length > 0) {
+      const problemRankings = sessionProblems.map((sp) => {
+        const problemVotes = ungroupedVotes.filter((v) => v.problemId === sp.problemId);
+        const totalCredits = problemVotes.reduce((acc, v) => acc + v.creditsAssigned, 0);
+
+        return {
+          problemId: sp.problem.id,
+          title: sp.problem.title,
+          totalCredits,
+          weightedCredits: totalCredits,
+          voterCount: problemVotes.length,
+        };
+      });
+
+      problemRankings.sort((a, b) => b.totalCredits - a.totalCredits);
+
+      const rankedProblems: GroupRanking[] = problemRankings.map((p, i) => ({
+        ...p,
+        rank: i + 1,
+      }));
+
+      groupResults.push({
+        group: {
+          id: 'ungrouped',
+          name: 'Other Voters',
+          type: 'EXTERNAL_USER',
+          weight: 1,
+        },
+        totalVoters: new Set(ungroupedVotes.map((v) => v.userId)).size,
+        totalVotes: ungroupedVotes.length,
+        totalCredits: ungroupedVotes.reduce((acc, v) => acc + v.creditsAssigned, 0),
+        rankings: rankedProblems,
+      });
+    }
+
+    return {
+      session: {
+        id: session.id,
+        title: session.title,
+        status: session.status,
+      },
+      groups: groupResults,
+    };
+  }
+
+  async getConsensusAnalysis(tenantId: string, sessionId: string) {
+    const resultsByGroup = await this.getResultsByGroup(tenantId, sessionId);
+
+    if (resultsByGroup.groups.length < 2) {
+      return {
+        session: resultsByGroup.session,
+        hasMultipleGroups: false,
+        consensus: [],
+        conflicts: [],
+      };
+    }
+
+    // Get all unique problems
+    const allProblems = new Map<string, { id: string; title: string }>();
+    resultsByGroup.groups.forEach((g) => {
+      g.rankings.forEach((r) => {
+        allProblems.set(r.problemId, { id: r.problemId, title: r.title });
+      });
+    });
+
+    // Calculate rank variance for each problem
+    const problemAnalysis = Array.from(allProblems.values()).map((problem) => {
+      const ranks: { groupId: string; groupName: string; rank: number; credits: number }[] = [];
+
+      resultsByGroup.groups.forEach((g) => {
+        const ranking = g.rankings.find((r) => r.problemId === problem.id);
+        if (ranking) {
+          ranks.push({
+            groupId: g.group.id,
+            groupName: g.group.name,
+            rank: ranking.rank,
+            credits: ranking.totalCredits,
+          });
+        }
+      });
+
+      // Calculate average rank
+      const avgRank = ranks.reduce((sum, r) => sum + r.rank, 0) / ranks.length;
+
+      // Calculate rank variance
+      const variance =
+        ranks.reduce((sum, r) => sum + Math.pow(r.rank - avgRank, 2), 0) / ranks.length;
+
+      // Calculate max rank difference
+      const maxRankDiff = Math.max(...ranks.map((r) => r.rank)) - Math.min(...ranks.map((r) => r.rank));
+
+      return {
+        problem,
+        avgRank,
+        variance,
+        maxRankDiff,
+        ranksByGroup: ranks,
+      };
+    });
+
+    // Sort by average rank for overall ranking
+    problemAnalysis.sort((a, b) => a.avgRank - b.avgRank);
+
+    // Identify consensus (low variance, high agreement)
+    const consensus = problemAnalysis
+      .filter((p) => p.maxRankDiff <= 3 && p.avgRank <= 5)
+      .map((p) => ({
+        problem: p.problem,
+        avgRank: Math.round(p.avgRank * 10) / 10,
+        agreement: 'high' as const,
+        ranksByGroup: p.ranksByGroup,
+      }));
+
+    // Identify conflicts (high variance)
+    const conflicts = problemAnalysis
+      .filter((p) => p.maxRankDiff >= 5)
+      .sort((a, b) => b.maxRankDiff - a.maxRankDiff)
+      .map((p) => ({
+        problem: p.problem,
+        avgRank: Math.round(p.avgRank * 10) / 10,
+        rankDiff: p.maxRankDiff,
+        ranksByGroup: p.ranksByGroup,
+      }));
+
+    return {
+      session: resultsByGroup.session,
+      hasMultipleGroups: true,
+      groupCount: resultsByGroup.groups.length,
+      consensus,
+      conflicts,
+    };
+  }
+
+  async getParticipationStats(tenantId: string, sessionId: string) {
+    // Verify session exists
+    const session = await this.prisma.votingSession.findFirst({
+      where: { id: sessionId, tenantId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Voting session not found');
+    }
+
+    // Get session groups with member counts
+    const sessionGroups = await this.prisma.votingSessionGroup.findMany({
+      where: { votingSessionId: sessionId },
+      include: {
+        voterGroup: {
+          include: {
+            _count: { select: { memberships: true } },
+          },
+        },
+      },
+    });
+
+    // Get all votes for this session
+    const votes = await this.prisma.vote.findMany({
+      where: { votingSessionId: sessionId },
+    });
+
+    const groupStats = sessionGroups.map((sg) => {
+      const groupVotes = votes.filter((v) => v.voterGroupId === sg.voterGroupId);
+      const uniqueVoters = new Set(groupVotes.map((v) => v.userId)).size;
+      const totalMembers = sg.voterGroup._count.memberships;
+      const totalCreditsUsed = groupVotes.reduce((acc, v) => acc + v.creditsAssigned, 0);
+
+      return {
+        group: {
+          id: sg.voterGroup.id,
+          name: sg.voterGroup.name,
+          type: sg.voterGroup.type,
+        },
+        totalMembers,
+        votersParticipated: uniqueVoters,
+        participationRate: totalMembers > 0 ? Math.round((uniqueVoters / totalMembers) * 100) : 0,
+        totalVotes: groupVotes.length,
+        totalCreditsUsed,
+      };
+    });
+
+    return {
+      session: {
+        id: session.id,
+        title: session.title,
+        status: session.status,
+      },
+      groups: groupStats,
     };
   }
 }

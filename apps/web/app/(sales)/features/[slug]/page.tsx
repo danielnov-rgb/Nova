@@ -44,13 +44,13 @@ export default async function FeatureDetailPage({ params }: { params: Promise<{ 
     <div>
       {/* Hero Section */}
       <HeroSection
-        badge={feature.status === "live" ? "Live Demo Available" : feature.status === "beta" ? "Beta" : "Coming Soon"}
+        badge={feature.status === "live" ? (feature.demoUrl ? "Live Demo Available" : "Live") : feature.status === "beta" ? "Beta" : "Coming Soon"}
         badgeVariant={feature.status}
         title={feature.title}
         subtitle={feature.tagline}
         description={feature.description}
-        primaryCta={feature.demoUrl ? { label: "Try Live Demo", href: feature.demoUrl } : undefined}
-        secondaryCta={{ label: "Request Demo", href: "mailto:demo@nova.ai?subject=Nova%20Demo%20Request" }}
+        primaryCta={feature.demoUrl ? { label: "Try Live Demo", href: feature.demoUrl } : feature.status === "live" ? { label: "Request Demo", href: "/contact" } : undefined}
+        secondaryCta={feature.demoUrl ? { label: "Schedule Demo", href: "/contact" } : undefined}
       />
 
       {/* Problem Statement */}
@@ -136,25 +136,34 @@ export default async function FeatureDetailPage({ params }: { params: Promise<{ 
             Ready to see {feature.shortTitle} in action?
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-            {feature.status === "live"
+            {feature.status === "live" && feature.demoUrl
               ? "Try the live demo yourself or schedule a personalized walkthrough with our team."
-              : "Schedule a demo to see our roadmap and discuss how Nova can transform your product process."}
+              : "Schedule a demo to see how Nova can transform your product process."}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            {feature.demoUrl && (
+            {feature.demoUrl ? (
               <Link
                 href={feature.demoUrl}
                 className="w-full sm:w-auto px-8 py-3.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors shadow-lg shadow-primary-500/25 text-center"
               >
                 Try Live Demo
               </Link>
+            ) : (
+              <Link
+                href="/contact"
+                className="w-full sm:w-auto px-8 py-3.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors shadow-lg shadow-primary-500/25 text-center"
+              >
+                Request Demo
+              </Link>
             )}
-            <a
-              href="mailto:demo@nova.ai?subject=Nova%20Demo%20Request"
-              className="w-full sm:w-auto px-8 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg transition-colors text-center"
-            >
-              Schedule Demo
-            </a>
+            {feature.demoUrl && (
+              <Link
+                href="/contact"
+                className="w-full sm:w-auto px-8 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg transition-colors text-center"
+              >
+                Schedule Demo
+              </Link>
+            )}
           </div>
         </div>
       </section>

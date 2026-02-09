@@ -38,6 +38,26 @@ export class RegisterVoterDto {
   lastName?: string;
 }
 
+export class RegisterWithTeamCodeDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @IsString()
+  @IsOptional()
+  lastName?: string;
+
+  @IsString()
+  teamCode: string;
+}
+
 export class LoginDto {
   @IsEmail()
   email: string;

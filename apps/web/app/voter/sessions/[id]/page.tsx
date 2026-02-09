@@ -249,6 +249,31 @@ export default function VoterSessionPage() {
             </button>
           </div>
         )}
+
+        {/* Nova Platform Introduction Footer */}
+        <footer className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+          <div className="text-center max-w-2xl mx-auto">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
+              Powered by
+            </p>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+              Nova Product Intelligence Platform
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Nova doesn't just help you prioritize what to build. It helps you build it faster,
+              measure it properly, and improve it continuously through AI that gets smarter with every project.
+            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
+            >
+              Explore the full platform
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Link>
+          </div>
+        </footer>
       </main>
     </div>
   );

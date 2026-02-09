@@ -1,0 +1,56 @@
+{
+  "search": {
+    "baseUrl": "https://api.example.com/search",
+    "queryParam": "q",
+    "limitParam": "limit",
+    "marketParam": "market",
+    "recencyParam": "days",
+    "apiKeyParam": "api_key",
+    "apiKey": "REPLACE_ME",
+    "resultsPath": "results",
+    "fieldMap": {
+      "title": "title",
+      "url": "url",
+      "snippet": "snippet",
+      "source": "source",
+      "publishedAt": "published_at"
+    },
+    "sourceName": "Web Search"
+  },
+  "datasets": {
+    "apiKey": "REPLACE_ME",
+    "apiKeyParam": "api_key",
+    "metrics": [
+      {
+        "key": "arr_time_to_1m_median_months",
+        "label": "Median time to $1M ARR",
+        "unit": "months",
+        "source": "Benchmark Dataset",
+        "url": "https://api.example.com/metrics/arr_ramp",
+        "valuePath": "data.value",
+        "updatedAtPath": "data.updated_at"
+      },
+      {
+        "key": "enterprise_discount_rate",
+        "label": "Typical enterprise discount band",
+        "source": "Pricing Dataset",
+        "url": "https://api.example.com/metrics/discount_band",
+        "valuePath": "data.band",
+        "updatedAtPath": "data.updated_at"
+      }
+    ]
+  },
+  "internal": {
+    "metrics": [
+      {
+        "key": "internal_activation_rate",
+        "label": "Internal activation rate",
+        "unit": "ratio",
+        "source": "Nova Warehouse",
+        "url": "https://internal.example.com/metrics/activation",
+        "valuePath": "metric.value",
+        "updatedAtPath": "metric.updated_at"
+      }
+    ]
+  }
+}

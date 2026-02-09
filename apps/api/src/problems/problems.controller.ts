@@ -11,7 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { ProblemsService } from './problems.service';
-import { CreateProblemDto, UpdateProblemDto, ImportProblemsDto } from './dto/problem.dto';
+import { CreateProblemDto, UpdateProblemDto, ImportProblemsDto, CsvImportDto, CsvPreviewDto } from './dto/problem.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('problems')
@@ -62,5 +62,15 @@ export class ProblemsController {
   @Post('import')
   async import(@Request() req: any, @Body() dto: ImportProblemsDto) {
     return this.problemsService.import(req.user.tenantId, dto);
+  }
+
+  @Post('import/csv/preview')
+  async previewCsvImport(@Body() dto: CsvPreviewDto) {
+    return this.problemsService.previewCsvImport(dto.csvContent);
+  }
+
+  @Post('import/csv')
+  async importCsv(@Request() req: any, @Body() dto: CsvImportDto) {
+    return this.problemsService.importFromCsv(req.user.tenantId, dto.csvContent, dto.sprintId);
   }
 }
