@@ -265,7 +265,7 @@ async function main() {
         title: data.title,
         description: data.description,
         source: ProblemSource.RESEARCH,
-        evidence: data.evidence,
+        evidenceItems: [data.evidence], // Schema uses evidenceItems (array) instead of evidence
         scores: data.scores,
         tags: data.tags,
         status: ProblemStatus.DISCOVERED,

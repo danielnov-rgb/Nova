@@ -7,15 +7,49 @@ import {
   EnhancedProblem,
   ProblemGroup,
   ProblemStatus,
+  ProblemSource,
   WeightValues,
   DEFAULT_WEIGHTS,
-  ALL_WEIGHT_KEYS,
+  DEFAULT_SCORES,
 } from '../_lib/types/problem';
 import {
-  sampleProblems,
   sampleGroups,
   sampleWeightingProfiles,
 } from './_data/sample-problems';
+import { problemsApi } from '../_lib/api';
+import type { Problem as ApiProblem } from '../_lib/types';
+
+// Transform API Problem to EnhancedProblem
+function transformApiProblem(apiProblem: ApiProblem): EnhancedProblem {
+  const scores = apiProblem.scores || {};
+  return {
+    id: apiProblem.id,
+    tenantId: 'demo-tenant',
+    title: apiProblem.title,
+    description: apiProblem.description || '',
+    source: (apiProblem.source as ProblemSource) || 'MANUAL',
+    evidenceItems: [],
+    status: (apiProblem.status as ProblemStatus) || 'DISCOVERED',
+    isShortlisted: false,
+    tags: apiProblem.tags || [],
+    groupIds: [],
+    createdAt: apiProblem.createdAt,
+    updatedAt: apiProblem.createdAt,
+    scores: {
+      applicability: { value: scores.applicability || 0 },
+      severity: { value: scores.severity || 0 },
+      frequency: { value: scores.frequency || 0 },
+      willingnessToPay: { value: scores.willingness_to_pay || scores.willingnessToPay || 0 },
+      retentionImpact: { value: scores.retention_impact || scores.retentionImpact || 0 },
+      acquisitionPotential: { value: scores.acquisition_potential || scores.acquisitionPotential || 0 },
+      viralCoefficient: { value: scores.viral_coefficient || scores.viralCoefficient || 0 },
+      strategicFit: { value: scores.strategic_fit || scores.strategicFit || 0 },
+      feasibility: { value: scores.feasibility || 0 },
+      timeToValue: { value: scores.time_to_value || scores.timeToValue || 0 },
+      riskLevel: { value: scores.risk_level || scores.riskLevel || 0 },
+    },
+  };
+}
 
 // Components
 import { GroupTabs } from './_components/GroupTabs';
@@ -54,10 +88,27 @@ function calculatePriorityWithEnabled(
 export default function ProblemsPage() {
   const router = useRouter();
 
-  // Data state - using sample data for demo
-  const [problems, setProblems] = useState<EnhancedProblem[]>(sampleProblems);
+  // Data state - fetched from API
+  const [problems, setProblems] = useState<EnhancedProblem[]>([]);
   const [groups, setGroups] = useState<ProblemGroup[]>(sampleGroups);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch problems from API on mount
+  useEffect(() => {
+    async function fetchProblems() {
+      try {
+        const apiProblems = await problemsApi.list();
+        const transformed = apiProblems.map(transformApiProblem);
+        setProblems(transformed);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load problems');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProblems();
+  }, []);
 
   // View & Filter state
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -289,6 +340,12 @@ export default function ProblemsPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <p className="text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        )}
+
+        {loading && (
+          <div className="mb-6 p-8 text-center">
+            <p className="text-gray-500 dark:text-gray-400">Loading problems...</p>
           </div>
         )}
 

@@ -2,15 +2,22 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { problemsApi, sprintsApi, CsvParseResult, CsvImportResult } from "../_lib/api";
+import { problemsApi, sprintsApi, CsvParseResult, CsvImportResult, ExcelParseResult, ExcelImportResult } from "../_lib/api";
 import { Sprint } from "../_lib/types";
 
+type FileType = "csv" | "excel";
+type ParseResult = CsvParseResult | ExcelParseResult;
+type ImportResult = CsvImportResult | ExcelImportResult;
+
 export default function ImportPage() {
+  const [fileType, setFileType] = useState<FileType>("csv");
   const [csvContent, setCsvContent] = useState("");
+  const [excelFile, setExcelFile] = useState<File | null>(null);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [selectedSprintId, setSelectedSprintId] = useState<string>("");
-  const [previewResult, setPreviewResult] = useState<CsvParseResult | null>(null);
-  const [importResult, setImportResult] = useState<CsvImportResult | null>(null);
+  const [enrichWithAgent, setEnrichWithAgent] = useState(false);
+  const [previewResult, setPreviewResult] = useState<ParseResult | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"input" | "preview" | "success">("input");
@@ -23,31 +30,53 @@ export default function ImportPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setCsvContent(content);
+    const extension = file.name.split(".").pop()?.toLowerCase();
+
+    if (extension === "xlsx" || extension === "xls") {
+      setFileType("excel");
+      setExcelFile(file);
+      setCsvContent("");
       setPreviewResult(null);
       setImportResult(null);
       setStep("input");
-    };
-    reader.readAsText(file);
+    } else {
+      setFileType("csv");
+      setExcelFile(null);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        setCsvContent(content);
+        setPreviewResult(null);
+        setImportResult(null);
+        setStep("input");
+      };
+      reader.readAsText(file);
+    }
   };
 
   const handlePreview = async () => {
-    if (!csvContent.trim()) {
+    if (fileType === "csv" && !csvContent.trim()) {
       setError("Please enter or upload CSV content");
+      return;
+    }
+    if (fileType === "excel" && !excelFile) {
+      setError("Please upload an Excel file");
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      const result = await problemsApi.previewCsvImport(csvContent);
+      let result: ParseResult;
+      if (fileType === "excel" && excelFile) {
+        result = await problemsApi.previewExcelImport(excelFile);
+      } else {
+        result = await problemsApi.previewCsvImport(csvContent);
+      }
       setPreviewResult(result);
       setStep("preview");
     } catch (err: any) {
-      setError(err.message || "Failed to parse CSV");
+      setError(err.message || `Failed to parse ${fileType.toUpperCase()}`);
     } finally {
       setLoading(false);
     }
@@ -55,14 +84,22 @@ export default function ImportPage() {
 
   const handleImport = async () => {
     if (!previewResult?.valid) {
-      setError("Please fix CSV errors before importing");
+      setError(`Please fix ${fileType.toUpperCase()} errors before importing`);
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      const result = await problemsApi.importCsv(csvContent, selectedSprintId || undefined);
+      let result: ImportResult;
+      if (fileType === "excel" && excelFile) {
+        result = await problemsApi.importExcel(excelFile, {
+          sprintId: selectedSprintId || undefined,
+          enrichWithAgent,
+        });
+      } else {
+        result = await problemsApi.importCsv(csvContent, selectedSprintId || undefined);
+      }
       setImportResult(result);
       setStep("success");
     } catch (err: any) {
@@ -73,10 +110,13 @@ export default function ImportPage() {
   };
 
   const handleReset = () => {
+    setFileType("csv");
     setCsvContent("");
+    setExcelFile(null);
     setPreviewResult(null);
     setImportResult(null);
     setSelectedSprintId("");
+    setEnrichWithAgent(false);
     setStep("input");
     setError(null);
   };
@@ -90,7 +130,7 @@ export default function ImportPage() {
             Import Problems
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Bulk import problems from a CSV file
+            Bulk import problems from CSV or Excel files
           </p>
         </div>
         <Link
@@ -123,6 +163,9 @@ export default function ImportPage() {
               </h2>
               <p className="text-green-700 dark:text-green-300">
                 {importResult.imported} problems imported successfully
+                {"enriched" in importResult && importResult.enriched > 0 && (
+                  <span className="ml-1">({importResult.enriched} enriched with AI)</span>
+                )}
               </p>
             </div>
           </div>
@@ -160,10 +203,36 @@ export default function ImportPage() {
       {/* Input Step */}
       {step === "input" && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-6">
-          {/* CSV Format Guide */}
+          {/* File Type Tabs */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => { setFileType("csv"); setExcelFile(null); }}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                fileType === "csv"
+                  ? "border-primary-500 text-primary-600 dark:text-primary-400"
+                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              CSV Import
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFileType("excel"); setCsvContent(""); }}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                fileType === "excel"
+                  ? "border-primary-500 text-primary-600 dark:text-primary-400"
+                  : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}
+            >
+              Excel Import
+            </button>
+          </div>
+
+          {/* Format Guide */}
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-              CSV Format
+              {fileType === "csv" ? "CSV Format" : "Excel Format"}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Required columns: <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">title</code>
@@ -173,25 +242,31 @@ export default function ImportPage() {
               <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">tags</code> (comma-separated),
               <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">severity</code>,
               <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">feasibility</code>,
-              <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">impact</code> (1-10),
-              <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">evidence_sources</code>,
-              <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">evidence_quotes</code> (pipe-separated)
+              <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">impact</code> (1-10)
             </p>
-            <pre className="text-xs bg-gray-200 dark:bg-gray-600 p-2 rounded overflow-x-auto">
-{`title,description,tags,severity,impact,evidence_sources
-"Login issues","Users struggle to reset passwords","auth,ux",8,7,"user_interview,support_tickets"
-"Slow dashboard","Page takes 5+ seconds to load","performance",6,9,"analytics"`}
-            </pre>
+            {fileType === "csv" && (
+              <pre className="text-xs bg-gray-200 dark:bg-gray-600 p-2 rounded overflow-x-auto">
+{`title,description,tags,severity,impact
+"Login issues","Users struggle to reset passwords","auth,ux",8,7
+"Slow dashboard","Page takes 5+ seconds to load","performance",6,9`}
+              </pre>
+            )}
+            {fileType === "excel" && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                Upload an <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">.xlsx</code> or
+                <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded ml-1">.xls</code> file with problems in the first sheet.
+              </p>
+            )}
           </div>
 
           {/* File Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Upload CSV File
+              Upload {fileType === "csv" ? "CSV" : "Excel"} File
             </label>
             <input
               type="file"
-              accept=".csv"
+              accept={fileType === "csv" ? ".csv" : ".xlsx,.xls"}
               onChange={handleFileUpload}
               className="block w-full text-sm text-gray-500 dark:text-gray-400
                 file:mr-4 file:py-2 file:px-4
@@ -202,36 +277,68 @@ export default function ImportPage() {
                 hover:file:bg-primary-100 dark:hover:file:bg-primary-900/30
                 cursor-pointer"
             />
+            {excelFile && fileType === "excel" && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Selected: <span className="font-medium">{excelFile.name}</span>
+              </p>
+            )}
           </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">or paste content</span>
-            </div>
-          </div>
+          {/* CSV-only: paste content option */}
+          {fileType === "csv" && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">or paste content</span>
+                </div>
+              </div>
 
-          {/* Text Area */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              CSV Content
-            </label>
-            <textarea
-              value={csvContent}
-              onChange={(e) => {
-                setCsvContent(e.target.value);
-                setPreviewResult(null);
-              }}
-              placeholder="Paste your CSV content here..."
-              rows={10}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
-                bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                focus:ring-2 focus:ring-primary-500 focus:border-primary-500
-                font-mono text-sm"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  CSV Content
+                </label>
+                <textarea
+                  value={csvContent}
+                  onChange={(e) => {
+                    setCsvContent(e.target.value);
+                    setPreviewResult(null);
+                  }}
+                  placeholder="Paste your CSV content here..."
+                  rows={10}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
+                    bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                    focus:ring-2 focus:ring-primary-500 focus:border-primary-500
+                    font-mono text-sm"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Enrich with AI option (Excel only) */}
+          {fileType === "excel" && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enrichWithAgent}
+                  onChange={(e) => setEnrichWithAgent(e.target.checked)}
+                  className="mt-1 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                />
+                <div>
+                  <span className="block font-medium text-gray-900 dark:text-white">
+                    Enrich with AI
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Nova will analyze each problem and generate scores, evidence summaries, and tags automatically.
+                    This may take a few moments for large imports.
+                  </span>
+                </div>
+              </label>
+            </div>
+          )}
 
           {/* Sprint Selection */}
           <div>
@@ -258,7 +365,7 @@ export default function ImportPage() {
           <div className="flex justify-end">
             <button
               onClick={handlePreview}
-              disabled={loading || !csvContent.trim()}
+              disabled={loading || (fileType === "csv" ? !csvContent.trim() : !excelFile)}
               className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700
                 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -352,6 +459,11 @@ export default function ImportPage() {
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   Problems to Import
+                  {enrichWithAgent && fileType === "excel" && (
+                    <span className="ml-2 text-sm font-normal text-blue-600 dark:text-blue-400">
+                      (will be enriched with AI)
+                    </span>
+                  )}
                 </h3>
               </div>
               <div className="overflow-x-auto">
@@ -367,12 +479,21 @@ export default function ImportPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Description
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Tags
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Scores
-                      </th>
+                      {fileType === "csv" && (
+                        <>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            Tags
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            Scores
+                          </th>
+                        </>
+                      )}
+                      {fileType === "excel" && (
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Additional Data
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -387,23 +508,35 @@ export default function ImportPage() {
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
                           {p.description || "-"}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {p.tags.map((tag, j) => (
-                              <span
-                                key={j}
-                                className="inline-flex px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {Object.entries(p.scores)
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(", ") || "-"}
-                        </td>
+                        {fileType === "csv" && "tags" in p && (
+                          <>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-wrap gap-1">
+                                {(p as CsvParseResult["problems"][0]).tags.map((tag, j) => (
+                                  <span
+                                    key={j}
+                                    className="inline-flex px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                              {Object.entries((p as CsvParseResult["problems"][0]).scores)
+                                .map(([k, v]) => `${k}: ${v}`)
+                                .join(", ") || "-"}
+                            </td>
+                          </>
+                        )}
+                        {fileType === "excel" && "rawData" in p && (
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                            {Object.entries((p as ExcelParseResult["problems"][0]).rawData)
+                              .filter(([k]) => k !== "title" && k !== "description")
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(", ") || "-"}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -431,7 +564,13 @@ export default function ImportPage() {
               className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700
                 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Importing..." : `Import ${previewResult.rowCount} Problems`}
+              {loading
+                ? enrichWithAgent && fileType === "excel"
+                  ? "Importing & Enriching..."
+                  : "Importing..."
+                : enrichWithAgent && fileType === "excel"
+                  ? `Import & Enrich ${previewResult.rowCount} Problems`
+                  : `Import ${previewResult.rowCount} Problems`}
             </button>
           </div>
         </div>

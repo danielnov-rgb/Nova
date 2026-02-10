@@ -228,6 +228,54 @@ export interface CsvImportResult {
   warnings: { row: number; field: string; message: string }[];
 }
 
+// Excel Import types
+export interface ExcelParseResult {
+  valid: boolean;
+  rowCount: number;
+  headers: string[];
+  errors: { row: number; field: string; message: string }[];
+  warnings: { row: number; field: string; message: string }[];
+  problems: {
+    row: number;
+    title: string;
+    description?: string;
+    rawData: Record<string, any>;
+  }[];
+}
+
+export interface ExcelImportResult {
+  imported: number;
+  enriched: number;
+  warnings: { row: number; field: string; message: string }[];
+}
+
+// FormData API request helper for file uploads
+async function apiRequestFormData<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<T> {
+  const token = getToken();
+  const url = `${API_URL}${endpoint}`;
+
+  console.log(`[API] POST ${url} (FormData)`, token ? "(authenticated)" : "(no token)");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    console.error(`[API] Error ${res.status}:`, data);
+    throw new ApiError(data.message || "Request failed", res.status);
+  }
+
+  return res.json();
+}
+
 // Create/Update Problem DTOs
 export interface CreateProblemDto {
   title: string;
@@ -287,6 +335,24 @@ export const problemsApi = {
       method: "POST",
       body: JSON.stringify({ csvContent, sprintId }),
     }),
+
+  previewExcelImport: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiRequestFormData<ExcelParseResult>("/problems/import/excel/preview", formData);
+  },
+
+  importExcel: (file: File, options?: { sprintId?: string; enrichWithAgent?: boolean }) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (options?.sprintId) {
+      formData.append("sprintId", options.sprintId);
+    }
+    if (options?.enrichWithAgent) {
+      formData.append("enrichWithAgent", "true");
+    }
+    return apiRequestFormData<ExcelImportResult>("/problems/import/excel", formData);
+  },
 };
 
 // Voters API (Admin view of session voters)

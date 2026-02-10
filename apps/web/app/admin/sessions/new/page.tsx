@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { sessionsApi, problemsApi, voterGroupsApi, sprintsApi } from "../../_lib/api";
-import type { Problem, VoterGroup, Sprint } from "../../_lib/types";
+import { sessionsApi, voterGroupsApi, sprintsApi, problemsApi } from "../../_lib/api";
+import type { VoterGroup, Sprint, Problem } from "../../_lib/types";
+import {
+  DatePicker,
+  SprintSelector,
+  VoterSelector,
+  AddProblemsModal,
+  PreviewSection,
+  type SelectedVoter,
+  type RequiredField,
+} from "./_components";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -18,6 +27,7 @@ interface SessionFormData {
 
 export default function CreateSessionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(1);
   const [formData, setFormData] = useState<SessionFormData>({
     title: "",
@@ -30,15 +40,26 @@ export default function CreateSessionPage() {
   const [voterGroups, setVoterGroups] = useState<VoterGroup[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [selectedProblemIds, setSelectedProblemIds] = useState<Set<string>>(new Set());
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
+  const [selectedVoters, setSelectedVoters] = useState<SelectedVoter[]>([]);
+  const [requiredFields, setRequiredFields] = useState<RequiredField[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [showAddProblemsModal, setShowAddProblemsModal] = useState(false);
 
+  // Load data on mount
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Pre-select problems from URL params
+  useEffect(() => {
+    const problemIds = searchParams.get("problemIds");
+    if (problemIds) {
+      setSelectedProblemIds(new Set(problemIds.split(",")));
+    }
+  }, [searchParams]);
 
   async function fetchData() {
     try {
@@ -69,24 +90,24 @@ export default function CreateSessionPage() {
     });
   }
 
-  function toggleGroup(id: string) {
-    setSelectedGroupIds((prev) => {
+  function removeProblem(id: string) {
+    setSelectedProblemIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      next.delete(id);
       return next;
     });
   }
 
-  function selectAllProblems() {
-    setSelectedProblemIds(new Set(filteredProblems.map((p) => p.id)));
+  function handleAddProblems(ids: string[]) {
+    setSelectedProblemIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
   }
 
-  function selectNoProblems() {
-    setSelectedProblemIds(new Set());
+  function handleSprintCreated(sprint: Sprint) {
+    setSprints((prev) => [...prev, sprint]);
   }
 
   async function handleSubmit() {
@@ -104,9 +125,10 @@ export default function CreateSessionPage() {
         description: formData.description || undefined,
         deadline: formData.deadline || undefined,
         problemIds: Array.from(selectedProblemIds),
-        voterGroupIds: selectedGroupIds.size > 0 ? Array.from(selectedGroupIds) : undefined,
         sprintId: formData.sprintId || undefined,
-        config: { defaultCredits: formData.defaultCredits },
+        defaultCredits: formData.defaultCredits,
+        // Store additional config (requiredFields will be saved in config JSON)
+        config: requiredFields.length > 0 ? { requiredFields } : undefined,
       });
       router.push(`/admin/sessions/${session.id}`);
     } catch (err) {
@@ -123,7 +145,18 @@ export default function CreateSessionPage() {
   );
 
   const selectedProblems = problems.filter((p) => selectedProblemIds.has(p.id));
-  const selectedGroups = voterGroups.filter((g) => selectedGroupIds.has(g.id));
+  const hasPreselectedProblems = searchParams.get("problemIds") !== null;
+
+  function formatDisplayDate(dateStr: string): string {
+    if (!dateStr) return "Not set";
+    const date = new Date(dateStr + "T00:00:00");
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -147,13 +180,18 @@ export default function CreateSessionPage() {
       <div className="flex items-center gap-2 mb-8">
         {[1, 2, 3, 4].map((s) => (
           <div key={s} className="flex items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+            <button
+              type="button"
+              onClick={() => {
+                if (s < step) setStep(s as Step);
+              }}
+              disabled={s > step}
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
                 s < step
-                  ? "bg-primary-500 text-white"
+                  ? "bg-primary-500 text-white cursor-pointer hover:bg-primary-600"
                   : s === step
                   ? "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 border-2 border-primary-500"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               }`}
             >
               {s < step ? (
@@ -163,7 +201,7 @@ export default function CreateSessionPage() {
               ) : (
                 s
               )}
-            </div>
+            </button>
             {s < 4 && (
               <div
                 className={`w-8 h-0.5 mx-1 ${
@@ -175,7 +213,7 @@ export default function CreateSessionPage() {
         ))}
         <span className="ml-4 text-sm text-gray-600 dark:text-gray-400">
           {step === 1 && "Session Details"}
-          {step === 2 && "Voter Groups"}
+          {step === 2 && "Voters & Requirements"}
           {step === 3 && "Select Problems"}
           {step === 4 && "Review & Create"}
         </span>
@@ -223,11 +261,10 @@ export default function CreateSessionPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Voting Deadline
                 </label>
-                <input
-                  type="datetime-local"
+                <DatePicker
                   value={formData.deadline}
-                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  onChange={(date) => setFormData({ ...formData, deadline: date })}
+                  placeholder="Select deadline"
                 />
               </div>
               <div>
@@ -243,25 +280,17 @@ export default function CreateSessionPage() {
                 />
               </div>
             </div>
-            {sprints.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Sprint (optional)
-                </label>
-                <select
-                  value={formData.sprintId}
-                  onChange={(e) => setFormData({ ...formData, sprintId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                >
-                  <option value="">No sprint</option>
-                  {sprints.map((sprint) => (
-                    <option key={sprint.id} value={sprint.id}>
-                      {sprint.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Sprint (optional)
+              </label>
+              <SprintSelector
+                sprints={sprints}
+                value={formData.sprintId}
+                onChange={(sprintId) => setFormData({ ...formData, sprintId })}
+                onSprintCreated={handleSprintCreated}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end mt-6">
@@ -282,74 +311,28 @@ export default function CreateSessionPage() {
         </div>
       )}
 
-      {/* Step 2: Voter Groups */}
+      {/* Step 2: Voters */}
       {step === 2 && (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Voter Groups
+            Voters & Requirements
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            Select which voter groups can participate. Leave empty to allow all users.
+            Add voters to this session and configure required information.
           </p>
 
           {loadingData ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
             </div>
-          ) : voterGroups.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400">No voter groups created yet.</p>
-              <Link
-                href="/admin/groups/new"
-                className="text-primary-600 dark:text-primary-400 hover:underline text-sm mt-2 inline-block"
-              >
-                Create a voter group
-              </Link>
-            </div>
           ) : (
-            <div className="space-y-2">
-              {voterGroups.map((group) => (
-                <label
-                  key={group.id}
-                  className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
-                    selectedGroupIds.has(group.id)
-                      ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedGroupIds.has(group.id)}
-                    onChange={() => toggleGroup(group.id)}
-                    className="mt-1 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {group.name}
-                      </span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        group.type === "LEADERSHIP"
-                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                          : group.type === "PROJECT_TEAM"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      }`}>
-                        {group.type.replace("_", " ")}
-                      </span>
-                    </div>
-                    {group.description && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {group.description}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {group._count?.memberships ?? 0} members • {group.defaultCredits} credits • {group.weight}x weight
-                    </p>
-                  </div>
-                </label>
-              ))}
-            </div>
+            <VoterSelector
+              voterGroups={voterGroups}
+              selectedVoters={selectedVoters}
+              requiredFields={requiredFields}
+              onVotersChange={setSelectedVoters}
+              onRequiredFieldsChange={setRequiredFields}
+            />
           )}
 
           <div className="flex justify-between mt-6">
@@ -373,78 +356,96 @@ export default function CreateSessionPage() {
       {step === 3 && (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Select Problems ({selectedProblemIds.size} selected)
-            </h2>
-            <div className="flex gap-2">
-              <button
-                onClick={selectAllProblems}
-                className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-              >
-                Select all
-              </button>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
-              <button
-                onClick={selectNoProblems}
-                className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-              >
-                Clear
-              </button>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Select Problems ({selectedProblemIds.size} selected)
+              </h2>
+              {hasPreselectedProblems && (
+                <p className="text-sm text-primary-600 dark:text-primary-400 mt-1">
+                  Problems pre-selected from Problems page
+                </p>
+              )}
             </div>
+            <button
+              onClick={() => setShowAddProblemsModal(true)}
+              className="px-3 py-1.5 text-sm bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add more
+            </button>
           </div>
-
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search problems..."
-            className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          />
 
           {loadingData ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
             </div>
-          ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {filteredProblems.map((problem) => (
-                <label
-                  key={problem.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedProblemIds.has(problem.id)
-                      ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedProblemIds.has(problem.id)}
-                    onChange={() => toggleProblem(problem.id)}
-                    className="mt-1 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {problem.title}
-                    </p>
-                    {problem.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1 mt-0.5">
-                        {problem.description}
-                      </p>
-                    )}
-                    <div className="flex gap-1 mt-1">
-                      {problem.tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </label>
-              ))}
+          ) : selectedProblems.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-500 dark:text-gray-400">No problems selected yet.</p>
+              <button
+                onClick={() => setShowAddProblemsModal(true)}
+                className="text-primary-600 dark:text-primary-400 hover:underline text-sm mt-2"
+              >
+                Add problems
+              </button>
             </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search selected problems..."
+                className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {selectedProblems
+                  .filter(
+                    (p) =>
+                      p.title.toLowerCase().includes(search.toLowerCase()) ||
+                      p.description?.toLowerCase().includes(search.toLowerCase())
+                  )
+                  .map((problem) => (
+                    <div
+                      key={problem.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {problem.title}
+                        </p>
+                        {problem.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1 mt-0.5">
+                            {problem.description}
+                          </p>
+                        )}
+                        <div className="flex gap-1 mt-1">
+                          {problem.tags.slice(0, 3).map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeProblem(problem.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        aria-label="Remove problem"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </>
           )}
 
           <div className="flex justify-between mt-6">
@@ -479,60 +480,55 @@ export default function CreateSessionPage() {
           </h2>
 
           <div className="space-y-6">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                Session Details
-              </h3>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                <p className="font-medium text-gray-900 dark:text-white">{formData.title}</p>
-                {formData.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {formData.description}
-                  </p>
+            <PreviewSection title="Session Details" onEdit={() => setStep(1)}>
+              <p className="font-medium text-gray-900 dark:text-white">{formData.title}</p>
+              {formData.description && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {formData.description}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600 dark:text-gray-400">
+                <span>Deadline: {formatDisplayDate(formData.deadline)}</span>
+                <span>Default credits: {formData.defaultCredits}</span>
+                {formData.sprintId && (
+                  <span>Sprint: {sprints.find((s) => s.id === formData.sprintId)?.name}</span>
                 )}
-                <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600 dark:text-gray-400">
-                  {formData.deadline && (
-                    <span>Deadline: {new Date(formData.deadline).toLocaleString()}</span>
-                  )}
-                  <span>Default credits: {formData.defaultCredits}</span>
-                  {formData.sprintId && (
-                    <span>Sprint: {sprints.find(s => s.id === formData.sprintId)?.name}</span>
-                  )}
-                </div>
               </div>
-            </div>
+            </PreviewSection>
 
-            {selectedGroups.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Voter Groups ({selectedGroups.length})
-                </h3>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <div className="flex flex-wrap gap-2">
-                    {selectedGroups.map((group) => (
+            <PreviewSection title={`Voters (${selectedVoters.length})`} onEdit={() => setStep(2)}>
+              {selectedVoters.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No voters selected. Session will be open to all.
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {selectedVoters.slice(0, 8).map((voter) => (
                       <span
-                        key={group.id}
-                        className={`text-sm px-3 py-1 rounded-full ${
-                          group.type === "LEADERSHIP"
-                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                            : group.type === "PROJECT_TEAM"
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                            : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        }`}
+                        key={voter.id}
+                        className="text-sm px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                       >
-                        {group.name}
+                        {voter.name || voter.email}
                       </span>
                     ))}
+                    {selectedVoters.length > 8 && (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        +{selectedVoters.length - 8} more
+                      </span>
+                    )}
                   </div>
-                </div>
-              </div>
-            )}
+                  {requiredFields.length > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Required info: {requiredFields.map((f) => f.label).join(", ")}
+                    </p>
+                  )}
+                </>
+              )}
+            </PreviewSection>
 
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                Selected Problems ({selectedProblems.length})
-              </h3>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto">
+            <PreviewSection title={`Selected Problems (${selectedProblems.length})`} onEdit={() => setStep(3)}>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
                 {selectedProblems.map((problem, i) => (
                   <div key={problem.id} className="flex items-center gap-2">
                     <span className="text-sm text-gray-400 dark:text-gray-500 w-6">
@@ -544,7 +540,7 @@ export default function CreateSessionPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </PreviewSection>
           </div>
 
           <div className="flex justify-between mt-6">
@@ -564,6 +560,15 @@ export default function CreateSessionPage() {
           </div>
         </div>
       )}
+
+      {/* Add Problems Modal */}
+      <AddProblemsModal
+        isOpen={showAddProblemsModal}
+        onClose={() => setShowAddProblemsModal(false)}
+        problems={problems}
+        selectedProblemIds={selectedProblemIds}
+        onAddProblems={handleAddProblems}
+      />
     </div>
   );
 }

@@ -150,3 +150,110 @@ export class ProblemResponseDto {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ============================================================================
+// EXCEL IMPORT DTOs
+// ============================================================================
+
+export class ExcelImportDto {
+  @IsString()
+  @IsOptional()
+  sprintId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  enrichWithAgent?: boolean;
+}
+
+export interface ExcelParseResult {
+  valid: boolean;
+  rowCount: number;
+  headers: string[];
+  errors: { row: number; field: string; message: string }[];
+  warnings: { row: number; field: string; message: string }[];
+  problems: {
+    row: number;
+    title: string;
+    description?: string;
+    rawData: Record<string, any>; // All columns from Excel
+  }[];
+}
+
+// ============================================================================
+// ENRICHMENT DTOs (Agent Integration)
+// ============================================================================
+
+export class EnrichProblemDto {
+  @IsString()
+  title: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  sourceContext?: string; // Interview transcript, user feedback, etc.
+
+  @IsString()
+  @IsOptional()
+  targetAudience?: string;
+}
+
+export class EnrichBatchDto {
+  @IsArray()
+  problems: EnrichProblemDto[];
+}
+
+export interface ScoreWithMeta {
+  value: number;
+  confidence: number;
+  justification: string;
+  source?: 'AI' | 'HUMAN' | 'IMPORT';
+}
+
+export interface EvidenceItem {
+  type: string;
+  content: string;
+  source: string;
+  sentiment?: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+  weight?: number;
+}
+
+export interface EnrichedProblemDto {
+  title: string;
+  description: string;
+  hypothesis: string;
+
+  scores: {
+    applicability: ScoreWithMeta;
+    severity: ScoreWithMeta;
+    frequency: ScoreWithMeta;
+    willingnessToPay: ScoreWithMeta;
+    retentionImpact: ScoreWithMeta;
+    acquisitionPotential: ScoreWithMeta;
+    viralCoefficient: ScoreWithMeta;
+    strategicFit: ScoreWithMeta;
+    feasibility: ScoreWithMeta;
+    timeToValue: ScoreWithMeta;
+    riskLevel: ScoreWithMeta;
+  };
+
+  evidenceItems: EvidenceItem[];
+  tags: string[];
+
+  enrichmentMetadata: {
+    enrichedAt: string;
+    agentVersion: string;
+    overallConfidence: number;
+  };
+}
+
+export class ImportEnrichedDto {
+  @IsArray()
+  problems: EnrichedProblemDto[];
+
+  @IsString()
+  @IsOptional()
+  sprintId?: string;
+}

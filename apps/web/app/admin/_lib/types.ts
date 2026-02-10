@@ -113,6 +113,17 @@ export interface SessionResults {
   results: ProblemResult[];
 }
 
+export interface RequiredInfoField {
+  field: string;
+  label: string;
+  required: boolean;
+}
+
+export interface CreateSessionVoterDto {
+  email: string;
+  type: VoterGroupType;
+}
+
 export interface CreateSessionDto {
   title: string;
   description?: string;
@@ -121,9 +132,12 @@ export interface CreateSessionDto {
   voterGroupIds?: string[];
   sprintId?: string;
   sessionType?: "SPRINT_BASED" | "THEMATIC";
+  defaultCredits?: number;
+  isPublic?: boolean;
+  voters?: CreateSessionVoterDto[];
   config?: {
-    defaultCredits?: number;
     creditsByRole?: Record<string, number>;
+    requiredFields?: RequiredInfoField[];
   };
 }
 

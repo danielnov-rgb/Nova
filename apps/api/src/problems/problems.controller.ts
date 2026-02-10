@@ -9,9 +9,23 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ProblemsService } from './problems.service';
-import { CreateProblemDto, UpdateProblemDto, ImportProblemsDto, CsvImportDto, CsvPreviewDto } from './dto/problem.dto';
+import {
+  CreateProblemDto,
+  UpdateProblemDto,
+  ImportProblemsDto,
+  CsvImportDto,
+  CsvPreviewDto,
+  ExcelImportDto,
+  EnrichProblemDto,
+  EnrichBatchDto,
+  ImportEnrichedDto,
+} from './dto/problem.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('problems')
@@ -72,5 +86,50 @@ export class ProblemsController {
   @Post('import/csv')
   async importCsv(@Request() req: any, @Body() dto: CsvImportDto) {
     return this.problemsService.importFromCsv(req.user.tenantId, dto.csvContent, dto.sprintId);
+  }
+
+  // ============================================================================
+  // EXCEL IMPORT
+  // ============================================================================
+
+  @Post('import/excel/preview')
+  @UseInterceptors(FileInterceptor('file'))
+  async previewExcelImport(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return this.problemsService.previewExcelImport(file.buffer);
+  }
+
+  @Post('import/excel')
+  @UseInterceptors(FileInterceptor('file'))
+  async importExcel(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: ExcelImportDto,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return this.problemsService.importFromExcel(req.user.tenantId, file.buffer, dto);
+  }
+
+  // ============================================================================
+  // ENRICHMENT (Agent Integration)
+  // ============================================================================
+
+  @Post('enrich')
+  async enrichProblem(@Body() dto: EnrichProblemDto) {
+    return this.problemsService.enrichProblem(dto);
+  }
+
+  @Post('enrich/batch')
+  async enrichBatch(@Body() dto: EnrichBatchDto) {
+    return this.problemsService.enrichBatch(dto.problems);
+  }
+
+  @Post('import/enriched')
+  async importEnriched(@Request() req: any, @Body() dto: ImportEnrichedDto) {
+    return this.problemsService.importEnriched(req.user.tenantId, dto.problems, dto.sprintId);
   }
 }
