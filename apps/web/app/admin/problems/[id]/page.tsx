@@ -2,18 +2,61 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { sampleProblems, sampleGroups } from '../_data/sample-problems';
+import { useState, useEffect } from 'react';
+import { problemsApi } from '../../_lib/api';
+import { Problem } from '../../_lib/types';
 import { SCORE_LABELS, EvidenceItem } from '../../_lib/types/problem';
+
+// Helper to extract score value (handles both number and object formats)
+function extractScore(score: unknown): { value: number; justification?: string; source?: string } {
+  if (typeof score === 'number') {
+    return { value: score };
+  }
+  if (score && typeof score === 'object' && 'value' in score) {
+    return score as { value: number; justification?: string; source?: string };
+  }
+  return { value: 0 };
+}
 
 export default function ProblemDetailPage() {
   const params = useParams();
   const router = useRouter();
   const problemId = params.id as string;
 
-  // Find the problem in sample data
-  const problem = sampleProblems.find((p) => p.id === problemId);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!problem) {
+  useEffect(() => {
+    async function fetchProblem() {
+      try {
+        setLoading(true);
+        const data = await problemsApi.get(problemId);
+        setProblem(data);
+      } catch (err) {
+        console.error('Failed to fetch problem:', err);
+        setError('Failed to load problem');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProblem();
+  }, [problemId]);
+
+  if (loading) {
+    return (
+      <div className="py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4" />
+            <p className="text-gray-600 dark:text-gray-400">Loading problem...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !problem) {
     return (
       <div className="py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,7 +65,7 @@ export default function ProblemDetailPage() {
               Problem Not Found
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              The problem with ID "{problemId}" could not be found.
+              {error || `The problem with ID "${problemId}" could not be found.`}
             </p>
             <Link
               href="/admin/problems"
@@ -36,8 +79,13 @@ export default function ProblemDetailPage() {
     );
   }
 
-  // Get groups this problem belongs to
-  const problemGroups = sampleGroups.filter((g) => problem.groupIds.includes(g.id));
+  // Process scores to ensure consistent format
+  const processedScores = problem.scores
+    ? Object.entries(problem.scores).reduce((acc, [key, value]) => {
+        acc[key] = extractScore(value);
+        return acc;
+      }, {} as Record<string, { value: number; justification?: string; source?: string }>)
+    : {};
 
   return (
     <div className="py-8">
@@ -55,12 +103,7 @@ export default function ProblemDetailPage() {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <StatusBadge status={problem.status} />
-                {problem.isShortlisted && (
-                  <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
-                    Shortlisted
-                  </span>
-                )}
+                <StatusBadge status={problem.status || 'DISCOVERED'} />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {problem.title}
@@ -75,16 +118,15 @@ export default function ProblemDetailPage() {
           </div>
         </div>
 
-        {/* Groups */}
-        {problemGroups.length > 0 && (
+        {/* Tags */}
+        {problem.tags && problem.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-6">
-            {problemGroups.map((group) => (
+            {problem.tags.map((tag) => (
               <span
-                key={group.id}
-                className="px-3 py-1 text-sm font-medium rounded-full text-white"
-                style={{ backgroundColor: group.color || '#6b7280' }}
+                key={tag}
+                className="px-3 py-1 text-sm font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
               >
-                {group.name}
+                {tag}
               </span>
             ))}
           </div>
@@ -112,26 +154,27 @@ export default function ProblemDetailPage() {
         </div>
 
         {/* Scoring */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Scoring Attributes
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {Object.entries(problem.scores).map(([key, scoreObj]) => {
-              const score = scoreObj as { value: number; justification?: string; source?: string };
-              const label = SCORE_LABELS[key as keyof typeof SCORE_LABELS] || key;
-              return (
-                <ScoreCard
-                  key={key}
-                  label={label}
-                  value={score.value}
-                  justification={score.justification}
-                  source={score.source}
-                />
-              );
-            })}
+        {Object.keys(processedScores).length > 0 && (
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Scoring Attributes
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {Object.entries(processedScores).map(([key, score]) => {
+                const label = SCORE_LABELS[key as keyof typeof SCORE_LABELS] || key;
+                return (
+                  <ScoreCard
+                    key={key}
+                    label={label}
+                    value={score.value}
+                    justification={score.justification}
+                    source={score.source}
+                  />
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Evidence */}
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
@@ -168,7 +211,7 @@ export default function ProblemDetailPage() {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-gray-500 dark:text-gray-400">Source</dt>
-              <dd className="font-medium text-gray-900 dark:text-white">{problem.source}</dd>
+              <dd className="font-medium text-gray-900 dark:text-white">{problem.source || 'Unknown'}</dd>
             </div>
             <div>
               <dt className="text-gray-500 dark:text-gray-400">Created</dt>
@@ -177,30 +220,19 @@ export default function ProblemDetailPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-gray-500 dark:text-gray-400">Last Updated</dt>
-              <dd className="font-medium text-gray-900 dark:text-white">
-                {new Date(problem.updatedAt).toLocaleDateString()}
-              </dd>
+              <dt className="text-gray-500 dark:text-gray-400">Status</dt>
+              <dd className="font-medium text-gray-900 dark:text-white">{problem.status || 'DISCOVERED'}</dd>
             </div>
-            {problem.createdBy && (
+            {problem.sprintId && (
               <div>
-                <dt className="text-gray-500 dark:text-gray-400">Created By</dt>
-                <dd className="font-medium text-gray-900 dark:text-white">{problem.createdBy}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">Sprint ID</dt>
+                <dd className="font-medium text-gray-900 dark:text-white">{problem.sprintId}</dd>
               </div>
             )}
-            {problem.tags && problem.tags.length > 0 && (
-              <div className="col-span-2">
-                <dt className="text-gray-500 dark:text-gray-400 mb-1">Tags</dt>
-                <dd className="flex flex-wrap gap-1">
-                  {problem.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </dd>
+            {problem.priorityScore != null && (
+              <div>
+                <dt className="text-gray-500 dark:text-gray-400">Priority Score</dt>
+                <dd className="font-medium text-gray-900 dark:text-white">{problem.priorityScore.toFixed(1)}</dd>
               </div>
             )}
           </dl>

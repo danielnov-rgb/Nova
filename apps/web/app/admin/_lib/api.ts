@@ -995,3 +995,95 @@ export const solutionsApi = {
       method: "DELETE",
     }),
 };
+
+// Problem Group types
+export interface ProblemGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    problems: number;
+  };
+}
+
+export interface CreateProblemGroupDto {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface UpdateProblemGroupDto {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface BulkGroupOperationDto {
+  problemIds: string[];
+  groupIds: string[];
+}
+
+// Problem Groups API
+export const problemGroupsApi = {
+  list: () => apiRequest<ProblemGroup[]>("/problem-groups"),
+
+  get: (id: string) => apiRequest<ProblemGroup>(`/problem-groups/${id}`),
+
+  create: (data: CreateProblemGroupDto) =>
+    apiRequest<ProblemGroup>("/problem-groups", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateProblemGroupDto) =>
+    apiRequest<ProblemGroup>(`/problem-groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<{ success: boolean }>(`/problem-groups/${id}`, {
+      method: "DELETE",
+    }),
+
+  // Add problems to a group
+  addProblems: (groupId: string, problemIds: string[]) =>
+    apiRequest<{ added: number }>(`/problem-groups/${groupId}/problems`, {
+      method: "POST",
+      body: JSON.stringify({ problemIds }),
+    }),
+
+  // Remove problems from a group
+  removeProblems: (groupId: string, problemIds: string[]) =>
+    apiRequest<{ removed: number }>(`/problem-groups/${groupId}/problems`, {
+      method: "DELETE",
+      body: JSON.stringify({ problemIds }),
+    }),
+
+  // Get problems in a group
+  getProblems: (groupId: string) =>
+    apiRequest<Problem[]>(`/problem-groups/${groupId}/problems`),
+
+  // Bulk operations
+  bulkAdd: (data: BulkGroupOperationDto) =>
+    apiRequest<{ added: number; problemCount: number; groupCount: number }>(
+      "/problem-groups/bulk/add",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+
+  bulkRemove: (data: BulkGroupOperationDto) =>
+    apiRequest<{ removed: number }>("/problem-groups/bulk/remove", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};

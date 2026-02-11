@@ -16,6 +16,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { SolutionsModule } from './solutions/solutions.module';
 import { FeaturesModule } from './features/features.module';
 import { PluginModule } from './plugin/plugin.module';
+import { ProblemGroupsModule } from './problem-groups/problem-groups.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { PluginModule } from './plugin/plugin.module';
     SolutionsModule,
     FeaturesModule,
     PluginModule,
+    ProblemGroupsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

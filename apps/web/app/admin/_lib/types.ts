@@ -61,15 +61,40 @@ export interface VotingLink {
   createdAt: string;
 }
 
+export interface ScoreWithMeta {
+  value: number;
+  justification?: string;
+  source?: string;
+  confidence?: number;
+  aiSuggested?: number;
+  lastUpdatedAt?: string;
+  lastUpdatedBy?: string;
+}
+
 export interface Problem {
   id: string;
   title: string;
   description?: string;
+  hypothesis?: string;
   source: string;
-  evidence: Record<string, unknown>;
-  scores: Record<string, number>;
+  evidenceItems?: Array<{
+    id: string;
+    type: string;
+    content: string;
+    source: string;
+    sourceUrl?: string;
+    reportedBy?: string;
+    reportedAt?: string;
+    sentiment?: string;
+    weight?: number;
+  }>;
+  evidenceSummary?: string;
+  scores: Record<string, ScoreWithMeta>;
+  priorityScore?: number;
   status: string;
   tags: string[];
+  sprintId?: string;
+  groupIds?: string[];
   createdAt: string;
 }
 

@@ -48,22 +48,49 @@ export class ProblemsService {
       ];
     }
 
-    return this.prisma.problem.findMany({
+    const problems = await this.prisma.problem.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      include: {
+        groups: {
+          select: {
+            groupId: true,
+          },
+        },
+      },
+    });
+
+    // Transform to include groupIds array
+    return problems.map((p) => {
+      const { groups, ...rest } = p;
+      return {
+        ...rest,
+        groupIds: groups.map((m: { groupId: string }) => m.groupId),
+      };
     });
   }
 
   async findOne(tenantId: string, id: string) {
     const problem = await this.prisma.problem.findFirst({
       where: { id, tenantId },
+      include: {
+        groups: {
+          select: {
+            groupId: true,
+          },
+        },
+      },
     });
 
     if (!problem) {
       throw new NotFoundException('Problem not found');
     }
 
-    return problem;
+    const { groups, ...rest } = problem;
+    return {
+      ...rest,
+      groupIds: groups.map((m: { groupId: string }) => m.groupId),
+    };
   }
 
   async update(tenantId: string, id: string, dto: UpdateProblemDto) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,11 +13,24 @@ import {
   DEFAULT_SCORES,
 } from '../_lib/types/problem';
 import {
-  sampleGroups,
   sampleWeightingProfiles,
 } from './_data/sample-problems';
-import { problemsApi } from '../_lib/api';
+import { problemsApi, problemGroupsApi, ProblemGroup as ApiProblemGroup } from '../_lib/api';
 import type { Problem as ApiProblem } from '../_lib/types';
+
+// Storage keys for persistence
+const VIEW_MODE_KEY = 'nova-problems-view-mode';
+
+// Helper to extract score value from API response (handles both number and object formats)
+function extractScore(score: unknown): { value: number; justification?: string; source?: string } {
+  if (typeof score === 'number') {
+    return { value: score };
+  }
+  if (score && typeof score === 'object' && 'value' in score) {
+    return score as { value: number; justification?: string; source?: string };
+  }
+  return { value: 0 };
+}
 
 // Transform API Problem to EnhancedProblem
 function transformApiProblem(apiProblem: ApiProblem): EnhancedProblem {
@@ -27,27 +40,45 @@ function transformApiProblem(apiProblem: ApiProblem): EnhancedProblem {
     tenantId: 'demo-tenant',
     title: apiProblem.title,
     description: apiProblem.description || '',
+    hypothesis: apiProblem.hypothesis,
     source: (apiProblem.source as ProblemSource) || 'MANUAL',
-    evidenceItems: [],
+    evidenceItems: apiProblem.evidenceItems || [],
+    evidenceSummary: apiProblem.evidenceSummary,
     status: (apiProblem.status as ProblemStatus) || 'DISCOVERED',
     isShortlisted: false,
     tags: apiProblem.tags || [],
-    groupIds: [],
+    groupIds: apiProblem.groupIds || [],
     createdAt: apiProblem.createdAt,
     updatedAt: apiProblem.createdAt,
+    priorityScore: apiProblem.priorityScore,
     scores: {
-      applicability: { value: scores.applicability || 0 },
-      severity: { value: scores.severity || 0 },
-      frequency: { value: scores.frequency || 0 },
-      willingnessToPay: { value: scores.willingness_to_pay || scores.willingnessToPay || 0 },
-      retentionImpact: { value: scores.retention_impact || scores.retentionImpact || 0 },
-      acquisitionPotential: { value: scores.acquisition_potential || scores.acquisitionPotential || 0 },
-      viralCoefficient: { value: scores.viral_coefficient || scores.viralCoefficient || 0 },
-      strategicFit: { value: scores.strategic_fit || scores.strategicFit || 0 },
-      feasibility: { value: scores.feasibility || 0 },
-      timeToValue: { value: scores.time_to_value || scores.timeToValue || 0 },
-      riskLevel: { value: scores.risk_level || scores.riskLevel || 0 },
+      applicability: extractScore(scores.applicability),
+      severity: extractScore(scores.severity),
+      frequency: extractScore(scores.frequency),
+      willingnessToPay: extractScore(scores.willingnessToPay || scores.willingness_to_pay),
+      retentionImpact: extractScore(scores.retentionImpact || scores.retention_impact),
+      acquisitionPotential: extractScore(scores.acquisitionPotential || scores.acquisition_potential),
+      viralCoefficient: extractScore(scores.viralCoefficient || scores.viral_coefficient),
+      strategicFit: extractScore(scores.strategicFit || scores.strategic_fit),
+      feasibility: extractScore(scores.feasibility),
+      timeToValue: extractScore(scores.timeToValue || scores.time_to_value),
+      riskLevel: extractScore(scores.riskLevel || scores.risk_level),
     },
+  };
+}
+
+// Transform API ProblemGroup to frontend ProblemGroup
+function transformApiGroup(apiGroup: ApiProblemGroup): ProblemGroup {
+  return {
+    id: apiGroup.id,
+    tenantId: apiGroup.tenantId,
+    name: apiGroup.name,
+    description: apiGroup.description,
+    color: apiGroup.color || '#6366f1',
+    icon: apiGroup.icon || 'folder',
+    problemCount: apiGroup._count?.problems || 0,
+    createdAt: apiGroup.createdAt,
+    updatedAt: apiGroup.updatedAt,
   };
 }
 
@@ -90,28 +121,49 @@ export default function ProblemsPage() {
 
   // Data state - fetched from API
   const [problems, setProblems] = useState<EnhancedProblem[]>([]);
-  const [groups, setGroups] = useState<ProblemGroup[]>(sampleGroups);
+  const [groups, setGroups] = useState<ProblemGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingGroups, setSavingGroups] = useState(false);
 
-  // Fetch problems from API on mount
+  // Load problems and groups from API
   useEffect(() => {
-    async function fetchProblems() {
+    async function loadData() {
       try {
-        const apiProblems = await problemsApi.list();
-        const transformed = apiProblems.map(transformApiProblem);
-        setProblems(transformed);
+        const [apiProblems, apiGroups] = await Promise.all([
+          problemsApi.list(),
+          problemGroupsApi.list(),
+        ]);
+        setProblems(apiProblems.map(transformApiProblem));
+        setGroups(apiGroups.map(transformApiGroup));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load problems');
+        console.error('Failed to load data:', err);
+        setError('Failed to load problems');
       } finally {
         setLoading(false);
       }
     }
-    fetchProblems();
+    loadData();
   }, []);
 
-  // View & Filter state
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  // View & Filter state - persist viewMode to localStorage
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(VIEW_MODE_KEY);
+      if (saved === 'list' || saved === 'card' || saved === 'board') {
+        return saved;
+      }
+    }
+    return 'list';
+  });
+
+  // Persist viewMode changes
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    }
+  }, []);
   const [activeGroupId, setActiveGroupId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<Set<ProblemStatus>>(new Set());
@@ -189,6 +241,16 @@ export default function ProblemsPage() {
     setSelectedIds(new Set());
   }
 
+  // Select all visible problems
+  function selectAll() {
+    setSelectedIds(new Set(processedProblems.map((p) => p.id)));
+  }
+
+  // Unselect all
+  function unselectAll() {
+    setSelectedIds(new Set());
+  }
+
   // Attribute toggle handler
   function handleToggleAttribute(key: keyof WeightValues) {
     setEnabledAttributes((prev) => {
@@ -202,37 +264,73 @@ export default function ProblemsPage() {
     });
   }
 
-  // Group handlers
-  function handleAddToGroups(groupIds: string[]) {
-    setProblems((prev) =>
-      prev.map((problem) => {
-        if (selectedIds.has(problem.id)) {
-          const newGroupIds = new Set([...problem.groupIds, ...groupIds]);
-          return { ...problem, groupIds: Array.from(newGroupIds) };
-        }
-        return problem;
-      })
-    );
-    clearSelection();
+  // Group handlers - persist to API
+  async function handleAddToGroups(groupIds: string[]) {
+    if (selectedIds.size === 0 || groupIds.length === 0) return;
+
+    setSavingGroups(true);
+    try {
+      await problemGroupsApi.bulkAdd({
+        problemIds: Array.from(selectedIds),
+        groupIds,
+      });
+
+      // Update local state
+      setProblems((prev) =>
+        prev.map((problem) => {
+          if (selectedIds.has(problem.id)) {
+            const newGroupIds = new Set([...problem.groupIds, ...groupIds]);
+            return { ...problem, groupIds: Array.from(newGroupIds) };
+          }
+          return problem;
+        })
+      );
+      clearSelection();
+    } catch (err) {
+      console.error('Failed to add to groups:', err);
+      setError('Failed to add problems to groups');
+    } finally {
+      setSavingGroups(false);
+    }
   }
 
-  function handleRemoveFromGroups(groupIds: string[]) {
-    setProblems((prev) =>
-      prev.map((problem) => {
-        if (selectedIds.has(problem.id)) {
-          return {
-            ...problem,
-            groupIds: problem.groupIds.filter((id) => !groupIds.includes(id)),
-          };
-        }
-        return problem;
-      })
-    );
-    clearSelection();
+  async function handleRemoveFromGroups(groupIds: string[]) {
+    if (selectedIds.size === 0 || groupIds.length === 0) return;
+
+    setSavingGroups(true);
+    try {
+      await problemGroupsApi.bulkRemove({
+        problemIds: Array.from(selectedIds),
+        groupIds,
+      });
+
+      // Update local state
+      setProblems((prev) =>
+        prev.map((problem) => {
+          if (selectedIds.has(problem.id)) {
+            return {
+              ...problem,
+              groupIds: problem.groupIds.filter((id) => !groupIds.includes(id)),
+            };
+          }
+          return problem;
+        })
+      );
+      clearSelection();
+    } catch (err) {
+      console.error('Failed to remove from groups:', err);
+      setError('Failed to remove problems from groups');
+    } finally {
+      setSavingGroups(false);
+    }
   }
 
-  // Status change handler (bulk)
-  function handleChangeStatus(status: ProblemStatus) {
+  // Status change handler (bulk) - persists to API
+  async function handleChangeStatus(status: ProblemStatus) {
+    const problemIds = Array.from(selectedIds);
+    if (problemIds.length === 0) return;
+
+    // Optimistically update local state
     setProblems((prev) =>
       prev.map((problem) => {
         if (selectedIds.has(problem.id)) {
@@ -242,10 +340,22 @@ export default function ProblemsPage() {
       })
     );
     clearSelection();
+
+    // Persist to API (fire and forget with error handling)
+    try {
+      await Promise.all(
+        problemIds.map((id) => problemsApi.update(id, { status }))
+      );
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      setError('Failed to update problem status');
+      // Could revert state here if needed
+    }
   }
 
-  // Single problem status change (for Kanban drag-and-drop)
-  function handleSingleStatusChange(problemId: string, status: ProblemStatus) {
+  // Single problem status change (for Kanban drag-and-drop) - persists to API
+  async function handleSingleStatusChange(problemId: string, status: ProblemStatus) {
+    // Optimistically update local state for snappy UI
     setProblems((prev) =>
       prev.map((problem) => {
         if (problem.id === problemId) {
@@ -254,6 +364,17 @@ export default function ProblemsPage() {
         return problem;
       })
     );
+
+    // Persist to API
+    try {
+      await problemsApi.update(problemId, { status });
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      setError('Failed to update problem status');
+      // Revert the optimistic update on error
+      const apiProblems = await problemsApi.list();
+      setProblems(apiProblems.map(transformApiProblem));
+    }
   }
 
   function handleCreateSession() {
@@ -261,40 +382,52 @@ export default function ProblemsPage() {
     router.push(`/admin/sessions/new?problemIds=${problemIdsParam}`);
   }
 
-  function handleSaveGroup(groupData: Partial<ProblemGroup>) {
-    if (groupData.id) {
-      // Update existing
-      setGroups((prev) =>
-        prev.map((g) => (g.id === groupData.id ? { ...g, ...groupData } : g))
-      );
-    } else {
-      // Create new
-      const newGroup: ProblemGroup = {
-        id: `grp-${Date.now()}`,
-        tenantId: 'demo-tenant',
-        name: groupData.name || 'New Group',
-        description: groupData.description,
-        color: groupData.color || '#6366f1',
-        icon: 'folder',
-        problemCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setGroups((prev) => [...prev, newGroup]);
+  async function handleSaveGroup(groupData: Partial<ProblemGroup>) {
+    try {
+      if (groupData.id) {
+        // Update existing
+        const updated = await problemGroupsApi.update(groupData.id, {
+          name: groupData.name,
+          description: groupData.description,
+          color: groupData.color,
+          icon: groupData.icon,
+        });
+        setGroups((prev) =>
+          prev.map((g) => (g.id === groupData.id ? transformApiGroup(updated) : g))
+        );
+      } else {
+        // Create new
+        const created = await problemGroupsApi.create({
+          name: groupData.name || 'New Group',
+          description: groupData.description,
+          color: groupData.color || '#6366f1',
+          icon: groupData.icon,
+        });
+        setGroups((prev) => [...prev, transformApiGroup(created)]);
+      }
+    } catch (err) {
+      console.error('Failed to save group:', err);
+      setError('Failed to save group');
     }
   }
 
-  function handleDeleteGroup(groupId: string) {
-    setGroups((prev) => prev.filter((g) => g.id !== groupId));
-    // Remove group from all problems
-    setProblems((prev) =>
-      prev.map((p) => ({
-        ...p,
-        groupIds: p.groupIds.filter((id) => id !== groupId),
-      }))
-    );
-    if (activeGroupId === groupId) {
-      setActiveGroupId('all');
+  async function handleDeleteGroup(groupId: string) {
+    try {
+      await problemGroupsApi.delete(groupId);
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+      // Remove group from all problems locally
+      setProblems((prev) =>
+        prev.map((p) => ({
+          ...p,
+          groupIds: p.groupIds.filter((id) => id !== groupId),
+        }))
+      );
+      if (activeGroupId === groupId) {
+        setActiveGroupId('all');
+      }
+    } catch (err) {
+      console.error('Failed to delete group:', err);
+      setError('Failed to delete group');
     }
   }
 
@@ -411,7 +544,7 @@ export default function ProblemsPage() {
               </button>
 
               {/* View Toggle */}
-              <ViewToggle viewMode={viewMode} onChange={setViewMode} />
+              <ViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
             </div>
           </div>
         </div>
@@ -429,6 +562,37 @@ export default function ProblemsPage() {
             />
           </div>
         )}
+
+        {/* Selection Controls */}
+        <div className="border-x border-gray-200 dark:border-gray-800 px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {selectedIds.size > 0
+                ? `${selectedIds.size} of ${processedProblems.length} selected`
+                : `${processedProblems.length} problems`}
+            </span>
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                onClick={selectAll}
+                disabled={processedProblems.length === 0}
+                className="text-xs px-2 py-1 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Select All
+              </button>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={unselectAll}
+                  className="text-xs px-2 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                >
+                  Unselect All
+                </button>
+              )}
+            </div>
+          </div>
+          {savingGroups && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">Saving...</span>
+          )}
+        </div>
 
         {/* Selection Action Bar */}
         {selectedIds.size > 0 && (
