@@ -778,6 +778,156 @@ export const projectsApi = {
     }),
 };
 
+// Feature Map types
+export type FeatureStatus = "DRAFT" | "ACTIVE" | "DEPRECATED" | "ARCHIVED";
+
+export interface CodeLocation {
+  repo: string;
+  filePath: string;
+  lineRange?: string;
+  branch?: string;
+}
+
+export interface DesignFile {
+  url: string;
+  type: string;
+  name: string;
+}
+
+export interface Feature {
+  id: string;
+  tenantId: string;
+  featureId: string;
+  name: string;
+  description?: string;
+  status: FeatureStatus;
+  parentId?: string;
+  codeLocations: CodeLocation[];
+  designFiles: DesignFile[];
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  children?: Feature[];
+  parent?: Feature;
+  _count?: {
+    analyticsEvents: number;
+    children: number;
+  };
+}
+
+export interface CreateFeatureDto {
+  featureId: string;
+  name: string;
+  description?: string;
+  parentId?: string;
+  status?: FeatureStatus;
+  codeLocations?: CodeLocation[];
+  designFiles?: DesignFile[];
+  tags?: string[];
+}
+
+export interface UpdateFeatureDto {
+  featureId?: string;
+  name?: string;
+  description?: string;
+  parentId?: string;
+  status?: FeatureStatus;
+  codeLocations?: CodeLocation[];
+  designFiles?: DesignFile[];
+  tags?: string[];
+}
+
+// Features API
+export const featuresApi = {
+  list: (params?: { parentId?: string; status?: FeatureStatus; search?: string; rootOnly?: boolean }) => {
+    const query = params
+      ? new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v !== undefined)
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : "";
+    return apiRequest<Feature[]>(`/features${query ? `?${query}` : ""}`);
+  },
+
+  get: (id: string) => apiRequest<Feature>(`/features/${id}`),
+
+  getByFeatureId: (featureId: string) =>
+    apiRequest<Feature>(`/features/by-feature-id/${featureId}`),
+
+  getTree: () => apiRequest<Feature[]>("/features/tree"),
+
+  create: (data: CreateFeatureDto) =>
+    apiRequest<Feature>("/features", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: UpdateFeatureDto) =>
+    apiRequest<Feature>(`/features/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiRequest<Feature>(`/features/${id}`, {
+      method: "DELETE",
+    }),
+
+  getEventCount: (id: string, days?: number) => {
+    const query = days ? `?days=${days}` : "";
+    return apiRequest<{ featureId: string; eventCount: number; days: number }>(
+      `/features/${id}/events/count${query}`
+    );
+  },
+};
+
+// Plugin Config types
+export interface PluginConfig {
+  id: string;
+  tenantId: string;
+  apiKey: string;
+  isEnabled: boolean;
+  allowedOrigins: string[];
+  eventsPerMinute: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdatePluginConfigDto {
+  isEnabled?: boolean;
+  allowedOrigins?: string[];
+  eventsPerMinute?: number;
+}
+
+export interface AnalyticsStats {
+  totalEvents: number;
+  eventsByType: Record<string, number>;
+  eventsByDay: { date: string; count: number }[];
+  topFeatures: { featureId: string; name: string; count: number }[];
+}
+
+// Plugin API
+export const pluginApi = {
+  getConfig: () => apiRequest<PluginConfig>("/plugin/config"),
+
+  updateConfig: (data: UpdatePluginConfigDto) =>
+    apiRequest<PluginConfig>("/plugin/config", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  rotateApiKey: () =>
+    apiRequest<{ apiKey: string; message: string }>("/plugin/config/rotate-key", {
+      method: "POST",
+    }),
+
+  getAnalytics: (days?: number) => {
+    const query = days ? `?days=${days}` : "";
+    return apiRequest<AnalyticsStats>(`/plugin/analytics${query}`);
+  },
+};
+
 // Solution Design types
 export type SolutionStatus = "DESIGNED" | "DEVELOPMENT" | "TESTING" | "LIVE" | "KILLED";
 

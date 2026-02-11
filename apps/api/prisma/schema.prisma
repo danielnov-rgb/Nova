@@ -35,6 +35,8 @@ model Tenant {
   sprints           Sprint[]
   weightingProfiles WeightingProfile[]
   problemGroups     ProblemGroup[]
+  features          Feature[]
+  pluginConfig      PluginConfig?
 
   @@map("tenants")
 }
@@ -635,4 +637,127 @@ model AuditLog {
   @@index([userId])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// FEATURE MAP
+// ============================================================================
+
+model Feature {
+  id          String        @id @default(cuid())
+  tenantId    String
+  featureId   String        // Human-readable: 'checkout-payment-form'
+
+  // Hierarchy
+  parentId    String?
+
+  // Metadata
+  name        String
+  description String?       @db.Text
+  status      FeatureStatus @default(ACTIVE)
+
+  // External Links (JSON for flexibility)
+  codeLocations Json        @default("[]") // Array of {repo, filePath, lineRange, branch}
+  designFiles   Json        @default("[]") // Array of {url, type, name}
+  tags          String[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent          Feature?         @relation("FeatureHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Feature[]        @relation("FeatureHierarchy")
+  analyticsEvents AnalyticsEvent[]
+
+  @@unique([tenantId, featureId])
+  @@index([tenantId])
+  @@index([parentId])
+  @@index([status])
+  @@map("features")
+}
+
+enum FeatureStatus {
+  DRAFT      // Being documented
+  ACTIVE     // In production
+  DEPRECATED // Scheduled for removal
+  ARCHIVED   // Historical record
+}
+
+// ============================================================================
+// ANALYTICS EVENTS
+// ============================================================================
+
+model AnalyticsEvent {
+  id         String    @id @default(cuid())
+  tenantId   String
+  featureId  String?   // May be null for general page events
+
+  eventType  EventType
+  eventName  String    // e.g., "click", "view", "complete", "error"
+
+  // Anonymous user tracking
+  sessionId  String    // Anonymous session identifier
+  deviceId   String?   // Anonymous device fingerprint (optional)
+
+  // Context
+  pageUrl    String?
+  referrer   String?
+  userAgent  String?
+  metadata   Json      @default("{}") // Additional event-specific data
+
+  // Timestamps
+  occurredAt DateTime  @default(now())
+  receivedAt DateTime  @default(now())
+
+  // Relations
+  feature    Feature?  @relation(fields: [featureId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([featureId])
+  @@index([sessionId])
+  @@index([eventType])
+  @@index([occurredAt])
+  @@index([tenantId, featureId, occurredAt]) // Composite for analytics queries
+  @@map("analytics_events")
+}
+
+enum EventType {
+  FEATURE_VIEW     // User viewed/opened feature
+  FEATURE_INTERACT // User interacted (click, input, etc.)
+  FEATURE_COMPLETE // User completed workflow
+  FEATURE_ERROR    // Error occurred
+  FEATURE_EXIT     // User left without completing
+  PAGE_VIEW        // General page view
+  CUSTOM           // Custom event
+}
+
+// ============================================================================
+// PLUGIN CONFIGURATION
+// ============================================================================
+
+model PluginConfig {
+  id             String   @id @default(cuid())
+  tenantId       String   @unique
+
+  // API Key for plugin authentication
+  apiKey         String   @unique @default(cuid())
+
+  // Global settings
+  isEnabled      Boolean  @default(true)
+
+  // Environment settings
+  allowedOrigins String[] @default([]) // CORS origins
+
+  // Rate limiting
+  eventsPerMinute Int     @default(100)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([apiKey])
+  @@map("plugin_configs")
 }

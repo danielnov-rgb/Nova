@@ -14,6 +14,8 @@ import { MarketModule } from './market/market.module';
 import { CompetitorsModule } from './competitors/competitors.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SolutionsModule } from './solutions/solutions.module';
+import { FeaturesModule } from './features/features.module';
+import { PluginModule } from './plugin/plugin.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { SolutionsModule } from './solutions/solutions.module';
     CompetitorsModule,
     ProjectsModule,
     SolutionsModule,
+    FeaturesModule,
+    PluginModule,
   ],
   controllers: [AppController],
   providers: [AppService],

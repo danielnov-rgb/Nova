@@ -91,6 +91,15 @@ export default function AdminLayout({
                 <NavLink href="/admin/solutions" current={pathname.startsWith("/admin/solutions")}>
                   Solutions
                 </NavLink>
+                <NavLink href="/admin/features" current={pathname.startsWith("/admin/features")}>
+                  Features
+                </NavLink>
+                <NavLink href="/admin/plugin" current={pathname.startsWith("/admin/plugin")}>
+                  Plugin
+                </NavLink>
+                <NavLink href="/admin/analytics" current={pathname.startsWith("/admin/analytics")}>
+                  Analytics
+                </NavLink>
                 <NavLink href="/admin/groups" current={pathname.startsWith("/admin/groups")}>
                   Groups
                 </NavLink>
