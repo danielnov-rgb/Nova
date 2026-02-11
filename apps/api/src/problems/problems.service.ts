@@ -12,6 +12,8 @@ import {
   EnrichProblemDto,
   EnrichedProblemDto,
   ScoreWithMeta,
+  CreateCommentDto,
+  UpdateCommentDto,
 } from './dto/problem.dto';
 
 @Injectable()
@@ -657,5 +659,178 @@ export class ProblemsService {
       imported: created.length,
       problemIds: created.map((p) => p.id),
     };
+  }
+
+  // ============================================================================
+  // COMMENTS
+  // ============================================================================
+
+  async getComments(tenantId: string, problemId: string) {
+    // Verify problem exists and belongs to tenant
+    await this.findOne(tenantId, problemId);
+
+    return this.prisma.problemComment.findMany({
+      where: { problemId },
+      include: {
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async addComment(tenantId: string, problemId: string, userId: string, content: string) {
+    // Verify problem exists and belongs to tenant
+    await this.findOne(tenantId, problemId);
+
+    return this.prisma.problemComment.create({
+      data: {
+        problemId,
+        userId,
+        content,
+      },
+      include: {
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+    });
+  }
+
+  async updateComment(
+    tenantId: string,
+    problemId: string,
+    commentId: string,
+    userId: string,
+    content: string,
+  ) {
+    // Verify problem exists and belongs to tenant
+    await this.findOne(tenantId, problemId);
+
+    const comment = await this.prisma.problemComment.findFirst({
+      where: { id: commentId, problemId, userId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found or not owned by user');
+    }
+
+    return this.prisma.problemComment.update({
+      where: { id: commentId },
+      data: { content },
+      include: {
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+    });
+  }
+
+  async deleteComment(tenantId: string, problemId: string, commentId: string, userId: string) {
+    // Verify problem exists and belongs to tenant
+    await this.findOne(tenantId, problemId);
+
+    const comment = await this.prisma.problemComment.findFirst({
+      where: { id: commentId, problemId, userId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found or not owned by user');
+    }
+
+    await this.prisma.problemComment.delete({ where: { id: commentId } });
+    return { success: true };
+  }
+
+  // ============================================================================
+  // FAVOURITES
+  // ============================================================================
+
+  async getFavouriteStatus(tenantId: string, problemId: string, userId: string) {
+    // Verify problem exists and belongs to tenant
+    await this.findOne(tenantId, problemId);
+
+    const favourite = await this.prisma.problemFavourite.findUnique({
+      where: { problemId_userId: { problemId, userId } },
+    });
+
+    const favouriteCount = await this.prisma.problemFavourite.count({
+      where: { problemId },
+    });
+
+    const favouritedBy = await this.prisma.problemFavourite.findMany({
+      where: { problemId },
+      include: {
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      isFavourited: !!favourite,
+      favouriteCount,
+      favouritedBy: favouritedBy.map((f) => f.user),
+    };
+  }
+
+  async addFavourite(tenantId: string, problemId: string, userId: string) {
+    // Verify problem exists and belongs to tenant
+    await this.findOne(tenantId, problemId);
+
+    const existing = await this.prisma.problemFavourite.findUnique({
+      where: { problemId_userId: { problemId, userId } },
+    });
+
+    if (existing) {
+      return { success: true, isFavourited: true };
+    }
+
+    await this.prisma.problemFavourite.create({
+      data: { problemId, userId },
+    });
+
+    return { success: true, isFavourited: true };
+  }
+
+  async removeFavourite(tenantId: string, problemId: string, userId: string) {
+    // Verify problem exists and belongs to tenant
+    await this.findOne(tenantId, problemId);
+
+    await this.prisma.problemFavourite.deleteMany({
+      where: { problemId, userId },
+    });
+
+    return { success: true, isFavourited: false };
+  }
+
+  async listFavourites(tenantId: string, userId: string) {
+    const favourites = await this.prisma.problemFavourite.findMany({
+      where: {
+        userId,
+        problem: { tenantId },
+      },
+      include: {
+        problem: {
+          include: {
+            groups: {
+              select: { groupId: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return favourites.map((f) => {
+      const { groups, ...rest } = f.problem;
+      return {
+        ...rest,
+        groupIds: groups.map((m: { groupId: string }) => m.groupId),
+      };
+    });
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { isAuthenticated, getUser, clearAuth } from "./_lib/auth";
@@ -16,6 +16,8 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checking, setChecking] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Skip auth check for login page
@@ -32,6 +34,22 @@ export default function AdminLayout({
     setUser(getUser());
     setChecking(false);
   }, [pathname, router]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   function handleLogout() {
     clearAuth();
@@ -52,6 +70,24 @@ export default function AdminLayout({
     return <>{children}</>;
   }
 
+  // Check if any "more" menu item is active
+  const moreMenuPaths = [
+    "/admin/onboarding",
+    "/admin/audience",
+    "/admin/market",
+    "/admin/competitors",
+    "/admin/projects",
+    "/admin/solutions",
+    "/admin/features",
+    "/admin/plugin",
+    "/admin/plugin/demo",
+    "/admin/analytics",
+    "/admin/groups",
+    "/admin/sprints",
+    "/admin/import",
+  ];
+  const isMoreMenuActive = moreMenuPaths.some(path => pathname.startsWith(path));
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header */}
@@ -66,58 +102,116 @@ export default function AdminLayout({
                 </span>
               </div>
 
-              <nav className="flex items-center gap-1 overflow-x-auto">
-                <NavLink href="/admin/onboarding" current={pathname.startsWith("/admin/onboarding")}>
-                  Onboarding
-                </NavLink>
-                <NavLink href="/admin/audience" current={pathname.startsWith("/admin/audience")}>
-                  Audience
-                </NavLink>
-                <NavLink href="/admin/market" current={pathname.startsWith("/admin/market")}>
-                  Market
-                </NavLink>
+              {/* Main Navigation - Only Problems & Voting */}
+              <nav className="flex items-center gap-1">
                 <NavLink href="/admin/problems" current={pathname.startsWith("/admin/problems")}>
                   Problems
                 </NavLink>
                 <NavLink href="/admin/sessions" current={pathname.startsWith("/admin/sessions")}>
                   Voting
                 </NavLink>
-                <NavLink href="/admin/competitors" current={pathname.startsWith("/admin/competitors")}>
-                  Competitors
-                </NavLink>
-                <NavLink href="/admin/projects" current={pathname.startsWith("/admin/projects")}>
-                  Projects
-                </NavLink>
-                <NavLink href="/admin/solutions" current={pathname.startsWith("/admin/solutions")}>
-                  Solutions
-                </NavLink>
-                <NavLink href="/admin/features" current={pathname.startsWith("/admin/features")}>
-                  Features
-                </NavLink>
-                <NavLink href="/admin/plugin" current={pathname.startsWith("/admin/plugin")}>
-                  Plugin
-                </NavLink>
-                <NavLink href="/admin/analytics" current={pathname.startsWith("/admin/analytics")}>
-                  Analytics
-                </NavLink>
-                <NavLink href="/admin/groups" current={pathname.startsWith("/admin/groups")}>
-                  Groups
-                </NavLink>
               </nav>
             </div>
 
-            <div className="flex items-center gap-4">
-              {user && (
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {user.email}
-                </span>
-              )}
+            {/* Right side - User menu dropdown */}
+            <div className="relative" ref={menuRef}>
               <button
-                onClick={handleLogout}
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                onClick={() => setMenuOpen(!menuOpen)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isMoreMenuActive
+                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                }`}
               >
-                Sign out
+                {user?.email && (
+                  <span className="hidden sm:inline max-w-32 truncate">{user.email}</span>
+                )}
+                <svg
+                  className={`w-4 h-4 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
+
+              {/* Dropdown Menu */}
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                  <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Research & Intel
+                    </p>
+                  </div>
+                  <DropdownLink href="/admin/onboarding" current={pathname.startsWith("/admin/onboarding")}>
+                    Onboarding
+                  </DropdownLink>
+                  <DropdownLink href="/admin/audience" current={pathname.startsWith("/admin/audience")}>
+                    Audience
+                  </DropdownLink>
+                  <DropdownLink href="/admin/market" current={pathname.startsWith("/admin/market")}>
+                    Market Intel
+                  </DropdownLink>
+                  <DropdownLink href="/admin/competitors" current={pathname.startsWith("/admin/competitors")}>
+                    Competitors
+                  </DropdownLink>
+
+                  <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Product
+                    </p>
+                  </div>
+                  <DropdownLink href="/admin/projects" current={pathname.startsWith("/admin/projects")}>
+                    Projects
+                  </DropdownLink>
+                  <DropdownLink href="/admin/solutions" current={pathname.startsWith("/admin/solutions")}>
+                    Solutions
+                  </DropdownLink>
+                  <DropdownLink href="/admin/sprints" current={pathname.startsWith("/admin/sprints")}>
+                    Sprints
+                  </DropdownLink>
+
+                  <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Plugin & Analytics
+                    </p>
+                  </div>
+                  <DropdownLink href="/admin/features" current={pathname.startsWith("/admin/features")}>
+                    Features
+                  </DropdownLink>
+                  <DropdownLink href="/admin/plugin" current={pathname === "/admin/plugin"}>
+                    Plugin
+                  </DropdownLink>
+                  <DropdownLink href="/admin/plugin/demo" current={pathname.startsWith("/admin/plugin/demo")}>
+                    Plugin Demo
+                  </DropdownLink>
+                  <DropdownLink href="/admin/analytics" current={pathname.startsWith("/admin/analytics")}>
+                    Analytics
+                  </DropdownLink>
+
+                  <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Settings
+                    </p>
+                  </div>
+                  <DropdownLink href="/admin/groups" current={pathname.startsWith("/admin/groups")}>
+                    Voter Groups
+                  </DropdownLink>
+                  <DropdownLink href="/admin/import" current={pathname.startsWith("/admin/import")}>
+                    Import Data
+                  </DropdownLink>
+
+                  <div className="border-t border-gray-100 dark:border-gray-800 mt-1 pt-1">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -145,6 +239,29 @@ function NavLink({
         current
           ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
           : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function DropdownLink({
+  href,
+  current,
+  children,
+}: {
+  href: string;
+  current: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`block px-3 py-2 text-sm transition-colors ${
+        current
+          ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
+          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
       }`}
     >
       {children}

@@ -353,7 +353,69 @@ export const problemsApi = {
     }
     return apiRequestFormData<ExcelImportResult>("/problems/import/excel", formData);
   },
+
+  // Comments
+  getComments: (problemId: string) =>
+    apiRequest<CommentResponse[]>(`/problems/${problemId}/comments`),
+
+  addComment: (problemId: string, content: string) =>
+    apiRequest<CommentResponse>(`/problems/${problemId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
+
+  updateComment: (problemId: string, commentId: string, content: string) =>
+    apiRequest<CommentResponse>(`/problems/${problemId}/comments/${commentId}`, {
+      method: "PUT",
+      body: JSON.stringify({ content }),
+    }),
+
+  deleteComment: (problemId: string, commentId: string) =>
+    apiRequest<{ success: boolean }>(`/problems/${problemId}/comments/${commentId}`, {
+      method: "DELETE",
+    }),
+
+  // Favourites
+  getFavouriteStatus: (problemId: string) =>
+    apiRequest<FavouriteStatusResponse>(`/problems/${problemId}/favourite`),
+
+  addFavourite: (problemId: string) =>
+    apiRequest<{ success: boolean; isFavourited: boolean }>(`/problems/${problemId}/favourite`, {
+      method: "POST",
+    }),
+
+  removeFavourite: (problemId: string) =>
+    apiRequest<{ success: boolean; isFavourited: boolean }>(`/problems/${problemId}/favourite`, {
+      method: "DELETE",
+    }),
+
+  listFavourites: () => apiRequest<Problem[]>("/problems/favourites"),
 };
+
+// Comment & Favourite Types
+export interface CommentResponse {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+}
+
+export interface FavouriteStatusResponse {
+  isFavourited: boolean;
+  favouriteCount: number;
+  favouritedBy?: Array<{
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  }>;
+}
 
 // Voters API (Admin view of session voters)
 export const votersApi = {

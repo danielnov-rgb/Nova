@@ -3,9 +3,10 @@
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { problemsApi } from '../../_lib/api';
+import { problemsApi, CommentResponse, FavouriteStatusResponse } from '../../_lib/api';
 import { Problem } from '../../_lib/types';
 import { SCORE_LABELS, EvidenceItem } from '../../_lib/types/problem';
+import { getUser } from '../../_lib/auth';
 
 // Helper to extract score value (handles both number and object formats)
 function extractScore(score: unknown): { value: number; justification?: string; source?: string } {
@@ -27,6 +28,20 @@ export default function ProblemDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Favourite state
+  const [favouriteStatus, setFavouriteStatus] = useState<FavouriteStatusResponse | null>(null);
+  const [loadingFavourite, setLoadingFavourite] = useState(false);
+
+  // Comments state
+  const [comments, setComments] = useState<CommentResponse[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+
+  // Current user for comment ownership
+  const currentUser = getUser();
+
   useEffect(() => {
     async function fetchProblem() {
       try {
@@ -42,6 +57,86 @@ export default function ProblemDetailPage() {
     }
     fetchProblem();
   }, [problemId]);
+
+  // Fetch favourite status and comments after problem loads
+  useEffect(() => {
+    if (!problem) return;
+
+    async function fetchExtras() {
+      try {
+        const [favStatus, commentsData] = await Promise.all([
+          problemsApi.getFavouriteStatus(problemId),
+          problemsApi.getComments(problemId),
+        ]);
+        setFavouriteStatus(favStatus);
+        setComments(commentsData);
+      } catch (err) {
+        console.error('Failed to load favourites/comments:', err);
+      }
+    }
+    fetchExtras();
+  }, [problem, problemId]);
+
+  // Favourite handlers
+  async function handleToggleFavourite() {
+    if (!favouriteStatus) return;
+    setLoadingFavourite(true);
+    try {
+      if (favouriteStatus.isFavourited) {
+        await problemsApi.removeFavourite(problemId);
+        setFavouriteStatus((prev) => prev ? { ...prev, isFavourited: false, favouriteCount: Math.max(0, prev.favouriteCount - 1) } : null);
+      } else {
+        await problemsApi.addFavourite(problemId);
+        setFavouriteStatus((prev) => prev ? { ...prev, isFavourited: true, favouriteCount: prev.favouriteCount + 1 } : null);
+      }
+    } catch (err) {
+      console.error('Failed to toggle favourite:', err);
+    } finally {
+      setLoadingFavourite(false);
+    }
+  }
+
+  // Comment handlers
+  async function handleAddComment() {
+    if (!newComment.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const comment = await problemsApi.addComment(problemId, newComment.trim());
+      setComments((prev) => [comment, ...prev]);
+      setNewComment('');
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+    } finally {
+      setSubmittingComment(false);
+    }
+  }
+
+  async function handleUpdateComment(commentId: string) {
+    if (!editingContent.trim()) return;
+    try {
+      const updated = await problemsApi.updateComment(problemId, commentId, editingContent.trim());
+      setComments((prev) => prev.map((c) => c.id === commentId ? updated : c));
+      setEditingCommentId(null);
+      setEditingContent('');
+    } catch (err) {
+      console.error('Failed to update comment:', err);
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+    try {
+      await problemsApi.deleteComment(problemId, commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (err) {
+      console.error('Failed to delete comment:', err);
+    }
+  }
+
+  function startEditingComment(comment: CommentResponse) {
+    setEditingCommentId(comment.id);
+    setEditingContent(comment.content);
+  }
 
   if (loading) {
     return (
@@ -104,17 +199,38 @@ export default function ProblemDetailPage() {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <StatusBadge status={problem.status || 'DISCOVERED'} />
+                {favouriteStatus && favouriteStatus.favouriteCount > 0 && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <StarIcon filled className="w-3 h-3 text-amber-400" />
+                    {favouriteStatus.favouriteCount}
+                  </span>
+                )}
               </div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {problem.title}
               </h1>
             </div>
-            <Link
-              href={`/admin/problems/${problem.id}/edit`}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              Edit
-            </Link>
+            <div className="flex items-center gap-2">
+              {/* Favourite Button */}
+              <button
+                onClick={handleToggleFavourite}
+                disabled={loadingFavourite || !favouriteStatus}
+                className={`p-2 rounded-lg border transition-colors ${
+                  favouriteStatus?.isFavourited
+                    ? 'border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                    : 'border-gray-300 dark:border-gray-700 text-gray-400 hover:text-amber-500 hover:border-amber-300 dark:hover:border-amber-700'
+                } disabled:opacity-50`}
+                title={favouriteStatus?.isFavourited ? 'Remove from favourites' : 'Add to favourites'}
+              >
+                <StarIcon filled={favouriteStatus?.isFavourited} className="w-5 h-5" />
+              </button>
+              <Link
+                href={`/admin/problems/${problem.id}/edit`}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Edit
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -204,7 +320,7 @@ export default function ProblemDetailPage() {
         </div>
 
         {/* Metadata */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Metadata
           </h2>
@@ -236,6 +352,114 @@ export default function ProblemDetailPage() {
               </div>
             )}
           </dl>
+        </div>
+
+        {/* Comments Section */}
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Comments {comments.length > 0 && <span className="text-sm font-normal text-gray-500">({comments.length})</span>}
+          </h2>
+
+          {/* Add Comment Form */}
+          <div className="mb-6">
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+              rows={3}
+            />
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={handleAddComment}
+                disabled={!newComment.trim() || submittingComment}
+                className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {submittingComment ? 'Posting...' : 'Post Comment'}
+              </button>
+            </div>
+          </div>
+
+          {/* Comments List */}
+          {comments.length > 0 ? (
+            <div className="space-y-4">
+              {comments.map((comment) => (
+                <div key={comment.id} className="flex gap-3">
+                  {/* User Avatar */}
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 dark:text-primary-400 text-sm font-medium">
+                    {(comment.user.firstName?.[0] || comment.user.email?.[0] || '?').toUpperCase()}
+                  </div>
+
+                  {/* Comment Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-gray-900 dark:text-white text-sm">
+                        {comment.user.firstName && comment.user.lastName
+                          ? `${comment.user.firstName} ${comment.user.lastName}`
+                          : comment.user.email}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(comment.createdAt).toLocaleDateString()} at {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    {editingCommentId === comment.id ? (
+                      <div>
+                        <textarea
+                          value={editingContent}
+                          onChange={(e) => setEditingContent(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none"
+                          rows={2}
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => handleUpdateComment(comment.id)}
+                            className="px-3 py-1 bg-primary-500 text-white rounded text-xs font-medium hover:bg-primary-600"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => { setEditingCommentId(null); setEditingContent(''); }}
+                            className="px-3 py-1 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">
+                          {comment.content}
+                        </p>
+
+                        {/* Edit/Delete for own comments */}
+                        {currentUser && currentUser.id === comment.user.id && (
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => startEditingComment(comment)}
+                              className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-500"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">
+              No comments yet. Be the first to add one!
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -374,6 +598,24 @@ function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function StarIcon({ className, filled }: { className?: string; filled?: boolean }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+      />
     </svg>
   );
 }

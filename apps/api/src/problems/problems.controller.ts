@@ -25,6 +25,8 @@ import {
   EnrichProblemDto,
   EnrichBatchDto,
   ImportEnrichedDto,
+  CreateCommentDto,
+  UpdateCommentDto,
 } from './dto/problem.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -131,5 +133,72 @@ export class ProblemsController {
   @Post('import/enriched')
   async importEnriched(@Request() req: any, @Body() dto: ImportEnrichedDto) {
     return this.problemsService.importEnriched(req.user.tenantId, dto.problems, dto.sprintId);
+  }
+
+  // ============================================================================
+  // COMMENTS
+  // ============================================================================
+
+  @Get(':id/comments')
+  async getComments(@Request() req: any, @Param('id') id: string) {
+    return this.problemsService.getComments(req.user.tenantId, id);
+  }
+
+  @Post(':id/comments')
+  async addComment(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateCommentDto,
+  ) {
+    return this.problemsService.addComment(req.user.tenantId, id, req.user.id, dto.content);
+  }
+
+  @Put(':id/comments/:commentId')
+  async updateComment(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateCommentDto,
+  ) {
+    return this.problemsService.updateComment(
+      req.user.tenantId,
+      id,
+      commentId,
+      req.user.id,
+      dto.content,
+    );
+  }
+
+  @Delete(':id/comments/:commentId')
+  async deleteComment(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+  ) {
+    return this.problemsService.deleteComment(req.user.tenantId, id, commentId, req.user.id);
+  }
+
+  // ============================================================================
+  // FAVOURITES
+  // ============================================================================
+
+  @Get('favourites')
+  async listFavourites(@Request() req: any) {
+    return this.problemsService.listFavourites(req.user.tenantId, req.user.id);
+  }
+
+  @Get(':id/favourite')
+  async getFavouriteStatus(@Request() req: any, @Param('id') id: string) {
+    return this.problemsService.getFavouriteStatus(req.user.tenantId, id, req.user.id);
+  }
+
+  @Post(':id/favourite')
+  async addFavourite(@Request() req: any, @Param('id') id: string) {
+    return this.problemsService.addFavourite(req.user.tenantId, id, req.user.id);
+  }
+
+  @Delete(':id/favourite')
+  async removeFavourite(@Request() req: any, @Param('id') id: string) {
+    return this.problemsService.removeFavourite(req.user.tenantId, id, req.user.id);
   }
 }

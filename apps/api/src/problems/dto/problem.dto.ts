@@ -257,3 +257,41 @@ export class ImportEnrichedDto {
   @IsOptional()
   sprintId?: string;
 }
+
+// ============================================================================
+// COMMENT & FAVOURITE DTOs
+// ============================================================================
+
+export class CreateCommentDto {
+  @IsString()
+  content: string;
+}
+
+export class UpdateCommentDto {
+  @IsString()
+  content: string;
+}
+
+export interface CommentResponse {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+}
+
+export interface FavouriteStatusResponse {
+  isFavourited: boolean;
+  favouriteCount: number;
+  favouritedBy?: Array<{
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  }>;
+}

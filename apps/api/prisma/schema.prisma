@@ -54,11 +54,13 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  votes            Vote[]
-  voterSessions    VoterSession[]
-  groupMemberships VoterGroupMembership[]
-  codeRedemptions  TeamCodeRedemption[]
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  votes             Vote[]
+  voterSessions     VoterSession[]
+  groupMemberships  VoterGroupMembership[]
+  codeRedemptions   TeamCodeRedemption[]
+  problemComments   ProblemComment[]
+  problemFavourites ProblemFavourite[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -350,6 +352,8 @@ model Problem {
   votes          Vote[]
   solutions      Solution[]
   groups         ProblemGroupMembership[]
+  comments       ProblemComment[]
+  favourites     ProblemFavourite[]
 
   @@index([tenantId])
   @@index([sprintId])
@@ -435,6 +439,42 @@ model ProblemGroupMembership {
   @@index([problemId])
   @@index([groupId])
   @@map("problem_group_memberships")
+}
+
+// ============================================================================
+// PROBLEM COMMENTS & FAVOURITES
+// ============================================================================
+
+model ProblemComment {
+  id        String   @id @default(cuid())
+  problemId String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([problemId])
+  @@index([userId])
+  @@map("problem_comments")
+}
+
+model ProblemFavourite {
+  id        String   @id @default(cuid())
+  problemId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, userId])
+  @@index([userId])
+  @@map("problem_favourites")
 }
 
 model VotingSession {
