@@ -158,86 +158,108 @@ export class PluginService {
     eventsByDay: { date: string; count: number }[];
     topFeatures: { featureId: string; name: string; count: number }[];
   }> {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
 
-    // Total events
-    const totalEvents = await this.prisma.analyticsEvent.count({
-      where: {
-        tenantId,
-        occurredAt: { gte: startDate },
-      },
-    });
-
-    // Events by type
-    const eventsByTypeRaw = await this.prisma.analyticsEvent.groupBy({
-      by: ['eventType'],
-      where: {
-        tenantId,
-        occurredAt: { gte: startDate },
-      },
-      _count: { id: true },
-    });
-    const eventsByType: Record<string, number> = {};
-    for (const row of eventsByTypeRaw) {
-      eventsByType[row.eventType] = row._count.id;
-    }
-
-    // Events by day (using raw query for date grouping)
-    const eventsByDayRaw = await this.prisma.$queryRaw<
-      { date: Date; count: bigint }[]
-    >`
-      SELECT DATE(occurred_at) as date, COUNT(*) as count
-      FROM analytics_events
-      WHERE tenant_id = ${tenantId}
-        AND occurred_at >= ${startDate}
-      GROUP BY DATE(occurred_at)
-      ORDER BY date ASC
-    `;
-    const eventsByDay = eventsByDayRaw.map((row) => ({
-      date: row.date.toISOString().split('T')[0],
-      count: Number(row.count),
-    }));
-
-    // Top features by event count
-    const topFeaturesRaw = await this.prisma.analyticsEvent.groupBy({
-      by: ['featureId'],
-      where: {
-        tenantId,
-        occurredAt: { gte: startDate },
-        featureId: { not: null },
-      },
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 10,
-    });
-
-    const featureIds = topFeaturesRaw
-      .map((r) => r.featureId)
-      .filter((id): id is string => id !== null);
-
-    const features = await this.prisma.feature.findMany({
-      where: { id: { in: featureIds } },
-      select: { id: true, featureId: true, name: true },
-    });
-
-    const featureMap = new Map(features.map((f) => [f.id, f]));
-    const topFeatures = topFeaturesRaw
-      .filter((r) => r.featureId && featureMap.has(r.featureId))
-      .map((r) => {
-        const feature = featureMap.get(r.featureId!)!;
-        return {
-          featureId: feature.featureId,
-          name: feature.name,
-          count: r._count.id,
-        };
+      // Total events
+      const totalEvents = await this.prisma.analyticsEvent.count({
+        where: {
+          tenantId,
+          occurredAt: { gte: startDate },
+        },
       });
 
-    return {
-      totalEvents,
-      eventsByType,
-      eventsByDay,
-      topFeatures,
-    };
+      // Events by type
+      const eventsByTypeRaw = await this.prisma.analyticsEvent.groupBy({
+        by: ['eventType'],
+        where: {
+          tenantId,
+          occurredAt: { gte: startDate },
+        },
+        _count: { id: true },
+      });
+      const eventsByType: Record<string, number> = {};
+      for (const row of eventsByTypeRaw) {
+        eventsByType[row.eventType] = row._count.id;
+      }
+
+      // Events by day (using raw query for date grouping)
+      let eventsByDay: { date: string; count: number }[] = [];
+      try {
+        const eventsByDayRaw = await this.prisma.$queryRaw<
+          { date: Date | string; count: bigint }[]
+        >`
+          SELECT DATE(occurred_at) as date, COUNT(*) as count
+          FROM analytics_events
+          WHERE tenant_id = ${tenantId}
+            AND occurred_at >= ${startDate}
+          GROUP BY DATE(occurred_at)
+          ORDER BY date ASC
+        `;
+        eventsByDay = eventsByDayRaw.map((row) => ({
+          date: row.date instanceof Date
+            ? row.date.toISOString().split('T')[0]
+            : String(row.date),
+          count: Number(row.count),
+        }));
+      } catch (err) {
+        // If the raw query fails, just return empty array for this field
+        console.warn('Failed to get events by day:', err);
+        eventsByDay = [];
+      }
+
+      // Top features by event count
+      const topFeaturesRaw = await this.prisma.analyticsEvent.groupBy({
+        by: ['featureId'],
+        where: {
+          tenantId,
+          occurredAt: { gte: startDate },
+          featureId: { not: null },
+        },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+        take: 10,
+      });
+
+      const featureIds = topFeaturesRaw
+        .map((r) => r.featureId)
+        .filter((id): id is string => id !== null);
+
+      const features = featureIds.length > 0
+        ? await this.prisma.feature.findMany({
+            where: { id: { in: featureIds } },
+            select: { id: true, featureId: true, name: true },
+          })
+        : [];
+
+      const featureMap = new Map(features.map((f) => [f.id, f]));
+      const topFeatures = topFeaturesRaw
+        .filter((r) => r.featureId && featureMap.has(r.featureId))
+        .map((r) => {
+          const feature = featureMap.get(r.featureId!)!;
+          return {
+            featureId: feature.featureId,
+            name: feature.name,
+            count: r._count.id,
+          };
+        });
+
+      return {
+        totalEvents,
+        eventsByType,
+        eventsByDay,
+        topFeatures,
+      };
+    } catch (err) {
+      // If analytics queries fail (e.g., table doesn't exist yet), return empty stats
+      console.error('Failed to get event stats:', err);
+      return {
+        totalEvents: 0,
+        eventsByType: {},
+        eventsByDay: [],
+        topFeatures: [],
+      };
+    }
   }
 }
