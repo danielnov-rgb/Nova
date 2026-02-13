@@ -9,6 +9,7 @@ export interface JwtPayload {
   email: string;
   tenantId: string;
   role: string;
+  isDemoMode?: boolean;
 }
 
 @Injectable()
@@ -44,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: user.tenantId,
       role: user.role,
       tenant: user.tenant,
+      isDemoMode: user.isDemoMode,
     };
   }
 }

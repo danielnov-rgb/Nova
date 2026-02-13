@@ -155,6 +155,41 @@ export interface SessionGroup {
   defaultCredits: number;
 }
 
+export interface SessionVoter {
+  id: string;
+  type: "public" | "link" | "group";
+  email: string;
+  name: string | null;
+  userId: string | null;
+  groupName?: string;
+  creditsAllowed: number;
+  creditsUsed: number;
+  voteCount: number;
+  openedAt: string | null;
+  completedAt: string | null;
+  createdAt: string | null;
+  token?: string;
+  expiresAt?: string | null;
+}
+
+export interface SessionVotersResponse {
+  session: {
+    id: string;
+    title: string;
+    status: string;
+    isPublic: boolean;
+  };
+  summary: {
+    totalVoters: number;
+    groupVoters: number;
+    publicVoters: number;
+    linkVoters: number;
+    completedCount: number;
+    openedCount: number;
+  };
+  voters: SessionVoter[];
+}
+
 // Sessions API
 export const sessionsApi = {
   list: () => apiRequest<VotingSessionListItem[]>("/voting/sessions"),
@@ -187,6 +222,9 @@ export const sessionsApi = {
 
   getSessionGroups: (id: string) =>
     apiRequest<SessionGroup[]>(`/voting/sessions/${id}/groups`),
+
+  getVoters: (id: string) =>
+    apiRequest<SessionVotersResponse>(`/voting/sessions/${id}/voters`),
 };
 
 // Links API

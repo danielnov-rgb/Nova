@@ -94,6 +94,7 @@ export class AuthService {
       email: user.email,
       tenantId: user.tenantId,
       role: user.role,
+      isDemoMode: user.isDemoMode,
     };
 
     return {
@@ -105,6 +106,7 @@ export class AuthService {
         lastName: user.lastName ?? undefined,
         role: user.role,
         tenantId: user.tenantId,
+        isDemoMode: user.isDemoMode,
       },
     };
   }

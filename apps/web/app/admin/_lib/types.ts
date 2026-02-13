@@ -7,6 +7,7 @@ export interface AuthUser {
   lastName?: string;
   role: "FDE" | "ADMIN" | "MEMBER" | "VOTER";
   tenantId: string;
+  isDemoMode?: boolean;
 }
 
 export interface LoginResponse {
@@ -261,7 +262,6 @@ export interface VoterGroup {
   name: string;
   type: VoterGroupType;
   description?: string;
-  weight: number;
   defaultCredits: number;
   createdAt: string;
   updatedAt: string;
@@ -314,7 +314,6 @@ export interface CreateVoterGroupDto {
   name: string;
   type: VoterGroupType;
   description?: string;
-  weight?: number;
   defaultCredits?: number;
 }
 
@@ -322,7 +321,6 @@ export interface UpdateVoterGroupDto {
   name?: string;
   type?: VoterGroupType;
   description?: string;
-  weight?: number;
   defaultCredits?: number;
 }
 

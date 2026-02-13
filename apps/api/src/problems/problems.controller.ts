@@ -14,6 +14,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { UserRole } from '@prisma/client';
 import { ProblemsService } from './problems.service';
 import {
   CreateProblemDto,
@@ -29,13 +30,15 @@ import {
   UpdateCommentDto,
 } from './dto/problem.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 
 @Controller('problems')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ProblemsController {
   constructor(private problemsService: ProblemsService) {}
 
   @Post()
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async create(@Request() req: any, @Body() dto: CreateProblemDto) {
     return this.problemsService.create(req.user.tenantId, dto);
   }
@@ -62,6 +65,7 @@ export class ProblemsController {
   }
 
   @Put(':id')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async update(
     @Request() req: any,
     @Param('id') id: string,
@@ -71,21 +75,25 @@ export class ProblemsController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async remove(@Request() req: any, @Param('id') id: string) {
     return this.problemsService.remove(req.user.tenantId, id);
   }
 
   @Post('import')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async import(@Request() req: any, @Body() dto: ImportProblemsDto) {
     return this.problemsService.import(req.user.tenantId, dto);
   }
 
   @Post('import/csv/preview')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async previewCsvImport(@Body() dto: CsvPreviewDto) {
     return this.problemsService.previewCsvImport(dto.csvContent);
   }
 
   @Post('import/csv')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async importCsv(@Request() req: any, @Body() dto: CsvImportDto) {
     return this.problemsService.importFromCsv(req.user.tenantId, dto.csvContent, dto.sprintId);
   }
@@ -95,6 +103,7 @@ export class ProblemsController {
   // ============================================================================
 
   @Post('import/excel/preview')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   async previewExcelImport(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
@@ -104,6 +113,7 @@ export class ProblemsController {
   }
 
   @Post('import/excel')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   async importExcel(
     @Request() req: any,
@@ -121,16 +131,19 @@ export class ProblemsController {
   // ============================================================================
 
   @Post('enrich')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async enrichProblem(@Body() dto: EnrichProblemDto) {
     return this.problemsService.enrichProblem(dto);
   }
 
   @Post('enrich/batch')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async enrichBatch(@Body() dto: EnrichBatchDto) {
     return this.problemsService.enrichBatch(dto.problems);
   }
 
   @Post('import/enriched')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async importEnriched(@Request() req: any, @Body() dto: ImportEnrichedDto) {
     return this.problemsService.importEnriched(req.user.tenantId, dto.problems, dto.sprintId);
   }

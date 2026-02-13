@@ -1,4 +1,5 @@
 // Authentication utilities for voter pages
+// Uses the same auth keys as admin so switching users works across both interfaces
 
 export interface VoterUser {
   id: string;
@@ -7,6 +8,7 @@ export interface VoterUser {
   lastName?: string;
   role: string;
   tenantId: string;
+  isDemoMode?: boolean;
 }
 
 export interface LoginResponse {
@@ -14,8 +16,9 @@ export interface LoginResponse {
   user: VoterUser;
 }
 
-const TOKEN_KEY = "nova_voter_token";
-const USER_KEY = "nova_voter_user";
+// Use same keys as admin auth for unified login experience
+const TOKEN_KEY = "nova_admin_token";
+const USER_KEY = "nova_admin_user";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;

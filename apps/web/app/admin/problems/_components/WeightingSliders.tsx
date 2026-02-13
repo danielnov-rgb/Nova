@@ -181,24 +181,31 @@ interface WeightSliderProps {
 }
 
 function WeightSlider({ label, value, enabled, onToggle, onChange, color }: WeightSliderProps) {
+  const getScoreBadgeColor = (v: number) => {
+    if (v >= 20) return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+    if (v >= 10) return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
+    if (v >= 5) return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+    return 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400';
+  };
+
   return (
     <div
-      className={`p-2 rounded-lg border transition-colors ${
+      className={`p-3 rounded-lg border transition-all duration-300 ${
         enabled
-          ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+          ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600'
           : 'border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 opacity-50'
       }`}
     >
-      <div className="flex items-center justify-between mb-1">
-        <label className="flex items-center gap-2 cursor-pointer">
+      <div className="flex items-center justify-between mb-2">
+        <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
           <input
             type="checkbox"
             checked={enabled}
             onChange={onToggle}
-            className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 transition-colors"
           />
           <span
-            className={`text-xs truncate ${
+            className={`text-xs font-medium truncate transition-colors ${
               enabled
                 ? 'text-gray-700 dark:text-gray-300'
                 : 'text-gray-400 dark:text-gray-500'
@@ -209,29 +216,60 @@ function WeightSlider({ label, value, enabled, onToggle, onChange, color }: Weig
           </span>
         </label>
         {enabled && (
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={value}
-            onChange={(e) => onChange(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-            className="w-10 text-xs text-right px-1 py-0.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          />
+          <span className={`px-2 py-0.5 text-xs font-bold rounded-full transition-all ${getScoreBadgeColor(value)}`}>
+            {value}%
+          </span>
         )}
       </div>
       {enabled && (
-        <div className="relative">
+        <div className="relative group">
           <input
             type="range"
             min={0}
             max={30}
             value={value}
             onChange={(e) => onChange(parseInt(e.target.value))}
-            className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-pointer"
+            className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full appearance-none cursor-pointer transition-all
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:w-4
+              [&::-webkit-slider-thumb]:h-4
+              [&::-webkit-slider-thumb]:rounded-full
+              [&::-webkit-slider-thumb]:bg-white
+              [&::-webkit-slider-thumb]:border-2
+              [&::-webkit-slider-thumb]:border-gray-300
+              [&::-webkit-slider-thumb]:shadow-md
+              [&::-webkit-slider-thumb]:cursor-pointer
+              [&::-webkit-slider-thumb]:transition-transform
+              [&::-webkit-slider-thumb]:hover:scale-110
+              [&::-moz-range-thumb]:w-4
+              [&::-moz-range-thumb]:h-4
+              [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:bg-white
+              [&::-moz-range-thumb]:border-2
+              [&::-moz-range-thumb]:border-gray-300
+              [&::-moz-range-thumb]:shadow-md
+              [&::-moz-range-thumb]:cursor-pointer"
             style={{
               background: `linear-gradient(to right, ${getColorValue(color)} 0%, ${getColorValue(color)} ${(value / 30) * 100}%, rgb(229, 231, 235) ${(value / 30) * 100}%)`,
             }}
           />
+          {/* Quick adjust buttons */}
+          <div className="absolute -bottom-1 left-0 right-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+            <button
+              onClick={() => onChange(Math.max(0, value - 5))}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1"
+              type="button"
+            >
+              -5
+            </button>
+            <button
+              onClick={() => onChange(Math.min(30, value + 5))}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1"
+              type="button"
+            >
+              +5
+            </button>
+          </div>
         </div>
       )}
     </div>

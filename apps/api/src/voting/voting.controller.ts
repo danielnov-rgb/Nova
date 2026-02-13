@@ -8,6 +8,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { VotingService } from './voting.service';
 import {
   CreateVotingSessionDto,
@@ -18,14 +19,16 @@ import {
   CastBulkVotesDto,
 } from './dto/voting.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 
 // ========== ADMIN ROUTES (FDE/Admin) ==========
 @Controller('voting/sessions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class VotingSessionsController {
   constructor(private votingService: VotingService) {}
 
   @Post()
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async createSession(@Request() req: any, @Body() dto: CreateVotingSessionDto) {
     return this.votingService.createSession(req.user.tenantId, dto);
   }
@@ -41,6 +44,7 @@ export class VotingSessionsController {
   }
 
   @Put(':id')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async updateSession(
     @Request() req: any,
     @Param('id') id: string,
@@ -76,6 +80,7 @@ export class VotingSessionsController {
 
   // Voting Links Management
   @Post(':id/links')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async createLink(
     @Request() req: any,
     @Param('id') id: string,
@@ -85,6 +90,7 @@ export class VotingSessionsController {
   }
 
   @Post(':id/links/bulk')
+  @Roles(UserRole.FDE, UserRole.ADMIN)
   async createBulkLinks(
     @Request() req: any,
     @Param('id') id: string,
@@ -218,5 +224,14 @@ export class AuthenticatedVoterController {
     @Request() req: any,
   ) {
     return this.votingService.markSessionCompleteForUser(sessionId, req.user.id);
+  }
+
+  // Get results for a session (only after user has completed voting)
+  @Get(':id/results')
+  async getResults(
+    @Param('id') sessionId: string,
+    @Request() req: any,
+  ) {
+    return this.votingService.getVoterResults(sessionId, req.user.id);
   }
 }

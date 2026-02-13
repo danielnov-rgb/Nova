@@ -296,7 +296,7 @@ function ValueChainCard({
     },
   };
 
-  const styles = colorStyles[color] || colorStyles.primary;
+  const styles = colorStyles[color] ?? colorStyles.primary!;
   const moduleFeatures = modules.map((slug) => features.find((f) => f.slug === slug)).filter(Boolean);
 
   return (

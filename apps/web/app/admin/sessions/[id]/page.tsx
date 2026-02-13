@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { sessionsApi } from "../../_lib/api";
 import type { VotingSession, SessionStatus } from "../../_lib/types";
+import { VoterStatusPanel } from "./_components";
 
 const statusConfig: Record<SessionStatus, { label: string; className: string; nextStatus?: SessionStatus; nextLabel?: string }> = {
   DRAFT: {
@@ -241,14 +242,11 @@ export default function SessionDetailPage() {
         )}
       </div>
 
+      {/* Voter Status Panel */}
+      <VoterStatusPanel sessionId={sessionId} />
+
       {/* Action buttons */}
       <div className="flex gap-4 mb-8">
-        <Link
-          href={`/admin/sessions/${sessionId}/voters`}
-          className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors"
-        >
-          View Voters
-        </Link>
         <Link
           href={`/admin/sessions/${sessionId}/links`}
           className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -257,7 +255,7 @@ export default function SessionDetailPage() {
         </Link>
         <Link
           href={`/admin/sessions/${sessionId}/results`}
-          className="px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors"
         >
           View Results
         </Link>

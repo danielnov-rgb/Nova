@@ -133,12 +133,51 @@ export interface VoterSessionDetail {
   }>;
 }
 
+export interface VoterSessionResults {
+  session: {
+    id: string;
+    title: string;
+    description: string | null;
+    status: string;
+    deadline: string | null;
+  };
+  myVoting: {
+    creditsAllowed: number;
+    creditsUsed: number;
+    completedAt: string | null;
+    voteCount: number;
+  };
+  summary: {
+    totalVoters: number;
+    completedVoters: number;
+    totalCreditsAllocated: number;
+  };
+  results: Array<{
+    problem: {
+      id: string;
+      title: string;
+      description: string | null;
+      tags: string[];
+    };
+    totalCredits: number;
+    voterCount: number;
+    rank: number;
+    myVote?: {
+      credits: number;
+      comment: string | null;
+    };
+  }>;
+}
+
 export const voterSessionsApi = {
   getAssigned: () =>
     apiRequest<AssignedSession[]>("/voter/sessions"),
 
   getDetail: (sessionId: string) =>
     apiRequest<VoterSessionDetail>(`/voter/sessions/${sessionId}`),
+
+  getResults: (sessionId: string) =>
+    apiRequest<VoterSessionResults>(`/voter/sessions/${sessionId}/results`),
 
   castVote: (sessionId: string, problemId: string, credits: number) =>
     apiRequest<{ vote: { id: string; credits: number } }>(`/voter/sessions/${sessionId}/vote`, {

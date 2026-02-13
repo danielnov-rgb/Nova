@@ -69,6 +69,214 @@ async function main() {
 
   console.log(`Created admin user: ${adminUser.email}`);
 
+  // ============================================================================
+  // DEMO USERS FOR USER JOURNEY TESTING
+  // ============================================================================
+
+  const demoPasswordHash = await bcrypt.hash('demo123', 10);
+
+  // Create VoterGroups for demo
+  const leadershipGroup = await prisma.voterGroup.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Leadership' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Leadership',
+      type: 'LEADERSHIP',
+      description: 'Executive leadership team (demo mode)',
+      defaultCredits: 50,
+    },
+  });
+
+  const productTeamGroup = await prisma.voterGroup.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Product Team' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Product Team',
+      type: 'PROJECT_TEAM',
+      description: 'Product team with full access',
+      defaultCredits: 30,
+    },
+  });
+
+  const teamMembersGroup = await prisma.voterGroup.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Team Members' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Team Members',
+      type: 'PROJECT_TEAM',
+      description: 'General team members (read-only + comments)',
+      defaultCredits: 10,
+    },
+  });
+
+  const clientsGroup = await prisma.voterGroup.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Clients' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Clients',
+      type: 'EXTERNAL_USER',
+      description: 'External clients (demo mode)',
+      defaultCredits: 50,
+    },
+  });
+
+  console.log('Created VoterGroups: Leadership, Product Team, Team Members, Clients');
+
+  // Create FDE demo user (for user switcher)
+  const fdeDemoUser = await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: 'fde@novademo.com' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      email: 'fde@novademo.com',
+      passwordHash: demoPasswordHash,
+      role: UserRole.FDE,
+      firstName: 'FDE Admin',
+      isDemoMode: false, // Full access
+    },
+  });
+  console.log(`Created FDE demo user: ${fdeDemoUser.email} (Full Access)`);
+
+  // Define demo users
+  const demoUsersData = {
+    // Leadership (7 users) - Demo Mode (can see but changes don't persist)
+    leadership: [
+      { firstName: 'Steven', email: 'steven@novademo.com' },
+      { firstName: 'Marcel', email: 'marcel@novademo.com' },
+      { firstName: 'Bavini', email: 'bavini@novademo.com' },
+      { firstName: 'Dee', email: 'dee@novademo.com' },
+      { firstName: 'Dave', email: 'dave@novademo.com' },
+      { firstName: 'Sonja', email: 'sonja@novademo.com' },
+      { firstName: 'Luis', email: 'luis@novademo.com' },
+    ],
+    // Product Team (3 users) - Full Access
+    productTeam: [
+      { firstName: 'Daniel', email: 'daniel@novademo.com' },
+      { firstName: 'Jacques', email: 'jacques@novademo.com' },
+      { firstName: 'Ray', email: 'ray@novademo.com' },
+    ],
+    // Team Members (12 users) - Read-only + Comments + Voting + Favorites
+    teamMembers: [
+      { firstName: 'Meagan', email: 'meagan@novademo.com' },
+      { firstName: 'Matt', email: 'matt@novademo.com' },
+      { firstName: 'Flo', email: 'flo@novademo.com' },
+      { firstName: 'Courtney', email: 'courtney@novademo.com' },
+      { firstName: 'Nikolay', email: 'nikolay@novademo.com' },
+      { firstName: 'Carmen', email: 'carmen@novademo.com' },
+      { firstName: 'Larissa', email: 'larissa@novademo.com' },
+      { firstName: 'Rouleaux', email: 'rouleaux@novademo.com' },
+      { firstName: 'Muzi', email: 'muzi@novademo.com' },
+      { firstName: 'Liezahn', email: 'liezahn@novademo.com' },
+      { firstName: 'Camilla', email: 'camilla@novademo.com' },
+      { firstName: 'Kylan', email: 'kylan@novademo.com' },
+    ],
+    // Clients (4 users) - Demo Mode (same as Leadership)
+    clients: [
+      { firstName: 'Werner', email: 'werner@novademo.com' },
+      { firstName: 'Isak', email: 'isak@novademo.com' },
+      { firstName: 'Chantelle', email: 'chantelle@novademo.com' },
+      { firstName: 'Lewy', email: 'lewy@novademo.com' },
+    ],
+  };
+
+  // Create Leadership users (Demo Mode)
+  for (const userData of demoUsersData.leadership) {
+    const user = await prisma.user.upsert({
+      where: { tenantId_email: { tenantId: tenant.id, email: userData.email } },
+      update: { isDemoMode: true },
+      create: {
+        tenantId: tenant.id,
+        email: userData.email,
+        passwordHash: demoPasswordHash,
+        role: UserRole.ADMIN,
+        firstName: userData.firstName,
+        isDemoMode: true, // Demo mode - changes don't persist
+      },
+    });
+    // Add to Leadership group
+    await prisma.voterGroupMembership.upsert({
+      where: { userId_voterGroupId: { userId: user.id, voterGroupId: leadershipGroup.id } },
+      update: {},
+      create: { userId: user.id, voterGroupId: leadershipGroup.id, joinedVia: 'ADMIN_ADD' },
+    });
+    console.log(`Created Leadership user: ${userData.email} (Demo Mode)`);
+  }
+
+  // Create Product Team users (Full Access)
+  for (const userData of demoUsersData.productTeam) {
+    const user = await prisma.user.upsert({
+      where: { tenantId_email: { tenantId: tenant.id, email: userData.email } },
+      update: { isDemoMode: false },
+      create: {
+        tenantId: tenant.id,
+        email: userData.email,
+        passwordHash: demoPasswordHash,
+        role: UserRole.ADMIN,
+        firstName: userData.firstName,
+        isDemoMode: false, // Full access
+      },
+    });
+    // Add to Product Team group
+    await prisma.voterGroupMembership.upsert({
+      where: { userId_voterGroupId: { userId: user.id, voterGroupId: productTeamGroup.id } },
+      update: {},
+      create: { userId: user.id, voterGroupId: productTeamGroup.id, joinedVia: 'ADMIN_ADD' },
+    });
+    console.log(`Created Product Team user: ${userData.email} (Full Access)`);
+  }
+
+  // Create Team Members (Read-only + Comments + Voting)
+  for (const userData of demoUsersData.teamMembers) {
+    const user = await prisma.user.upsert({
+      where: { tenantId_email: { tenantId: tenant.id, email: userData.email } },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        email: userData.email,
+        passwordHash: demoPasswordHash,
+        role: UserRole.MEMBER, // MEMBER role = read-only + comments
+        firstName: userData.firstName,
+        isDemoMode: false,
+      },
+    });
+    // Add to Team Members group
+    await prisma.voterGroupMembership.upsert({
+      where: { userId_voterGroupId: { userId: user.id, voterGroupId: teamMembersGroup.id } },
+      update: {},
+      create: { userId: user.id, voterGroupId: teamMembersGroup.id, joinedVia: 'ADMIN_ADD' },
+    });
+    console.log(`Created Team Member: ${userData.email}`);
+  }
+
+  // Create Clients (Demo Mode - same as Leadership)
+  for (const userData of demoUsersData.clients) {
+    const user = await prisma.user.upsert({
+      where: { tenantId_email: { tenantId: tenant.id, email: userData.email } },
+      update: { isDemoMode: true },
+      create: {
+        tenantId: tenant.id,
+        email: userData.email,
+        passwordHash: demoPasswordHash,
+        role: UserRole.ADMIN,
+        firstName: userData.firstName,
+        isDemoMode: true, // Demo mode - changes don't persist
+      },
+    });
+    // Add to Clients group
+    await prisma.voterGroupMembership.upsert({
+      where: { userId_voterGroupId: { userId: user.id, voterGroupId: clientsGroup.id } },
+      update: {},
+      create: { userId: user.id, voterGroupId: clientsGroup.id, joinedVia: 'ADMIN_ADD' },
+    });
+    console.log(`Created Client user: ${userData.email} (Demo Mode)`);
+  }
+
+  console.log(`\nCreated ${demoUsersData.leadership.length + demoUsersData.productTeam.length + demoUsersData.teamMembers.length + demoUsersData.clients.length} demo users`);
+
   // Sample problems - realistic B2B SaaS issues discovered through research
   const problemsData = [
     {

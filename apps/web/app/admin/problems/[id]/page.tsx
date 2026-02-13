@@ -2,11 +2,20 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { problemsApi, CommentResponse, FavouriteStatusResponse } from '../../_lib/api';
 import { Problem } from '../../_lib/types';
 import { SCORE_LABELS, EvidenceItem } from '../../_lib/types/problem';
 import { getUser } from '../../_lib/auth';
+
+// Animation keyframes as inline styles
+const fadeInAnimation = `
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
+`;
 
 // Helper to extract score value (handles both number and object formats)
 function extractScore(score: unknown): { value: number; justification?: string; source?: string } {
@@ -182,8 +191,15 @@ export default function ProblemDetailPage() {
       }, {} as Record<string, { value: number; justification?: string; source?: string }>)
     : {};
 
+  // Calculate average score for summary
+  const scoreValues = Object.values(processedScores).map(s => s.value);
+  const averageScore = scoreValues.length > 0
+    ? Math.round(scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length)
+    : null;
+
   return (
     <div className="py-8">
+      <style dangerouslySetInnerHTML={{ __html: fadeInAnimation }} />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back button & Header */}
         <div className="mb-6">
@@ -272,9 +288,39 @@ export default function ProblemDetailPage() {
         {/* Scoring */}
         {Object.keys(processedScores).length > 0 && (
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Scoring Attributes
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Scoring Attributes
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {Object.keys(processedScores).length} attributes evaluated
+                </p>
+              </div>
+              {averageScore !== null && (
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Average</div>
+                    <div className={`text-2xl font-bold ${
+                      averageScore >= 70 ? 'text-green-600 dark:text-green-400' :
+                      averageScore >= 40 ? 'text-amber-600 dark:text-amber-400' :
+                      'text-red-600 dark:text-red-400'
+                    }`}>
+                      {averageScore}
+                    </div>
+                  </div>
+                  <ScoreRing value={averageScore} size={48} />
+                </div>
+              )}
+            </div>
+
+            {/* Score distribution mini-chart */}
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div className="flex items-center gap-4 text-xs">
+                <ScoreDistribution scores={scoreValues} />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {Object.entries(processedScores).map(([key, score]) => {
                 const label = SCORE_LABELS[key as keyof typeof SCORE_LABELS] || key;
@@ -505,33 +551,92 @@ function ScoreCard({
   justification?: string;
   source?: string;
 }) {
-  const getColor = (v: number) => {
-    if (v >= 70) return 'bg-green-500';
-    if (v >= 40) return 'bg-amber-500';
-    return 'bg-red-500';
+  const [animated, setAnimated] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Trigger animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimated(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const getColorClasses = (v: number) => {
+    if (v >= 70) return {
+      bar: 'bg-gradient-to-r from-green-400 to-green-500',
+      badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 ring-green-500/20',
+      glow: 'shadow-green-500/30',
+    };
+    if (v >= 40) return {
+      bar: 'bg-gradient-to-r from-amber-400 to-amber-500',
+      badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 ring-amber-500/20',
+      glow: 'shadow-amber-500/30',
+    };
+    return {
+      bar: 'bg-gradient-to-r from-red-400 to-red-500',
+      badge: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 ring-red-500/20',
+      glow: 'shadow-red-500/30',
+    };
   };
 
+  const colors = getColorClasses(value);
+  const displayLabel = value >= 70 ? 'High' : value >= 40 ? 'Medium' : 'Low';
+
   return (
-    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-      <div className="flex items-center justify-between mb-2">
+    <div
+      className="group relative p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-all duration-300 hover:shadow-md"
+      onMouseEnter={() => justification && setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
         <div className="flex items-center gap-2">
           {source && (
-            <span className="text-xs text-gray-400">
+            <span
+              className="text-xs text-gray-400 dark:text-gray-500"
+              title={source === 'AI' ? 'AI-generated score' : 'Human-provided score'}
+            >
               {source === 'AI' ? '🤖' : '👤'}
             </span>
           )}
-          <span className="text-sm font-bold text-gray-900 dark:text-white">{value}</span>
+          <span className={`px-2 py-0.5 text-xs font-bold rounded-full ring-1 ${colors.badge}`}>
+            {value}
+          </span>
         </div>
       </div>
-      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+
+      {/* Progress bar with animation */}
+      <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full ${getColor(value)}`}
-          style={{ width: `${value}%` }}
+          className={`h-full rounded-full ${colors.bar} transition-all duration-700 ease-out ${animated ? colors.glow : ''}`}
+          style={{
+            width: animated ? `${value}%` : '0%',
+            boxShadow: animated && value >= 70 ? '0 0 8px rgba(34, 197, 94, 0.4)' : undefined,
+          }}
         />
       </div>
-      {justification && (
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{justification}</p>
+
+      {/* Score level indicator */}
+      <div className="flex items-center justify-between mt-2">
+        <span className={`text-xs font-medium ${
+          value >= 70 ? 'text-green-600 dark:text-green-400' :
+          value >= 40 ? 'text-amber-600 dark:text-amber-400' :
+          'text-red-600 dark:text-red-400'
+        }`}>
+          {displayLabel}
+        </span>
+        {justification && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+            Hover for details
+          </span>
+        )}
+      </div>
+
+      {/* Tooltip for justification */}
+      {showTooltip && justification && (
+        <div className="absolute z-10 left-0 right-0 top-full mt-2 p-3 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-xl animate-fadeIn">
+          <div className="absolute -top-1.5 left-4 w-3 h-3 bg-gray-900 dark:bg-gray-700 rotate-45" />
+          <p className="relative">{justification}</p>
+        </div>
       )}
     </div>
   );
@@ -617,5 +722,105 @@ function StarIcon({ className, filled }: { className?: string; filled?: boolean 
         d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
       />
     </svg>
+  );
+}
+
+// Circular score indicator ring
+function ScoreRing({ value, size = 48 }: { value: number; size?: number }) {
+  const [animated, setAnimated] = useState(false);
+  const strokeWidth = 4;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (value / 100) * circumference;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimated(true), 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const getColor = (v: number) => {
+    if (v >= 70) return '#22c55e'; // green-500
+    if (v >= 40) return '#f59e0b'; // amber-500
+    return '#ef4444'; // red-500
+  };
+
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      {/* Background circle */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        className="text-gray-200 dark:text-gray-700"
+      />
+      {/* Progress circle */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke={getColor(value)}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={animated ? circumference - progress : circumference}
+        style={{
+          transition: 'stroke-dashoffset 1s ease-out',
+          filter: value >= 70 ? 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.5))' : undefined,
+        }}
+      />
+    </svg>
+  );
+}
+
+// Score distribution mini-chart
+function ScoreDistribution({ scores }: { scores: number[] }) {
+  const high = scores.filter(s => s >= 70).length;
+  const medium = scores.filter(s => s >= 40 && s < 70).length;
+  const low = scores.filter(s => s < 40).length;
+  const total = scores.length;
+
+  return (
+    <div className="flex items-center gap-4 w-full">
+      <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
+          {high > 0 && (
+            <div
+              className="h-full bg-green-500 transition-all duration-700"
+              style={{ width: `${(high / total) * 100}%` }}
+            />
+          )}
+          {medium > 0 && (
+            <div
+              className="h-full bg-amber-500 transition-all duration-700"
+              style={{ width: `${(medium / total) * 100}%` }}
+            />
+          )}
+          {low > 0 && (
+            <div
+              className="h-full bg-red-500 transition-all duration-700"
+              style={{ width: `${(low / total) * 100}%` }}
+            />
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-3 text-xs">
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="text-gray-600 dark:text-gray-400">{high} high</span>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-amber-500" />
+          <span className="text-gray-600 dark:text-gray-400">{medium} med</span>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-red-500" />
+          <span className="text-gray-600 dark:text-gray-400">{low} low</span>
+        </span>
+      </div>
+    </div>
   );
 }

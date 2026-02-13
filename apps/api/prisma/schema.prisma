@@ -50,6 +50,7 @@ model User {
   firstName    String?
   lastName     String?
   avatarUrl    String?
+  isDemoMode   Boolean  @default(false) // Demo users can interact but changes don't persist
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -185,8 +186,7 @@ model VoterGroup {
   name           String
   type           VoterGroupType
   description    String?        @db.Text
-  weight         Float          @default(1.0) // Vote weight multiplier
-  defaultCredits Int            @default(10)
+  defaultCredits Int            @default(10) // Use creditsOverride in VotingSessionGroup for per-session adjustments
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 

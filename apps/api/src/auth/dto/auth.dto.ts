@@ -75,5 +75,6 @@ export class AuthResponseDto {
     lastName?: string;
     role: string;
     tenantId: string;
+    isDemoMode?: boolean;
   };
 }

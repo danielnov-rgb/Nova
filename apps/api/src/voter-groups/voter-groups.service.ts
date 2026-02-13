@@ -30,7 +30,6 @@ export class VoterGroupsService {
         name: dto.name,
         type: dto.type,
         description: dto.description,
-        weight: dto.weight ?? 1.0,
         defaultCredits: dto.defaultCredits ?? 10,
       },
       include: {
@@ -109,7 +108,6 @@ export class VoterGroupsService {
         name: dto.name,
         type: dto.type,
         description: dto.description,
-        weight: dto.weight,
         defaultCredits: dto.defaultCredits,
       },
       include: {

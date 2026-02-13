@@ -21,10 +21,6 @@ export class CreateVoterGroupDto {
 
   @IsOptional()
   @IsNumber()
-  weight?: number;
-
-  @IsOptional()
-  @IsNumber()
   defaultCredits?: number;
 }
 
@@ -40,10 +36,6 @@ export class UpdateVoterGroupDto {
   @IsOptional()
   @IsString()
   description?: string;
-
-  @IsOptional()
-  @IsNumber()
-  weight?: number;
 
   @IsOptional()
   @IsNumber()

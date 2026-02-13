@@ -19,7 +19,6 @@ interface GroupRanking {
   problemId: string;
   title: string;
   totalCredits: number;
-  weightedCredits: number;
   voterCount: number;
   rank: number;
 }
@@ -29,7 +28,6 @@ interface GroupResult {
     id: string;
     name: string;
     type: string;
-    weight: number;
   };
   totalVoters: number;
   totalVotes: number;
@@ -571,7 +569,7 @@ export class VotingService {
   }
 
   async getVoterSessionForUser(sessionId: string, userId: string) {
-    const voterSession = await this.prisma.voterSession.findUnique({
+    let voterSession = await this.prisma.voterSession.findUnique({
       where: {
         votingSessionId_userId: { votingSessionId: sessionId, userId },
       },
@@ -588,8 +586,62 @@ export class VotingService {
       },
     });
 
+    // If no VoterSession exists, check if user is assigned via a VoterGroup
     if (!voterSession) {
-      throw new NotFoundException('You are not assigned to this session');
+      // Find if user is a member of a group linked to this session
+      const sessionGroup = await this.prisma.votingSessionGroup.findFirst({
+        where: {
+          votingSessionId: sessionId,
+          voterGroup: {
+            memberships: {
+              some: { userId },
+            },
+          },
+        },
+        include: {
+          votingSession: {
+            include: {
+              problems: {
+                include: { problem: true },
+                orderBy: { displayOrder: 'asc' },
+              },
+            },
+          },
+          voterGroup: true,
+        },
+      });
+
+      if (!sessionGroup) {
+        throw new NotFoundException('You are not assigned to this session');
+      }
+
+      // Auto-create VoterSession for this user (join the session)
+      const creditsAllowed =
+        sessionGroup.creditsOverride ??
+        sessionGroup.voterGroup.defaultCredits ??
+        sessionGroup.votingSession.defaultCredits;
+
+      const newVoterSession = await this.prisma.voterSession.create({
+        data: {
+          votingSessionId: sessionId,
+          userId,
+          creditsAllowed,
+          openedAt: new Date(),
+        },
+        include: {
+          votingSession: {
+            include: {
+              problems: {
+                include: { problem: true },
+                orderBy: { displayOrder: 'asc' },
+              },
+            },
+          },
+          user: { select: { email: true, firstName: true, lastName: true } },
+        },
+      });
+
+      voterSession = newVoterSession;
     }
 
     if (voterSession.votingSession.status !== 'ACTIVE') {
@@ -643,15 +695,49 @@ export class VotingService {
   }
 
   async castVoteAsUser(sessionId: string, userId: string, dto: CastVoteDto) {
-    const voterSession = await this.prisma.voterSession.findUnique({
+    let voterSession = await this.prisma.voterSession.findUnique({
       where: {
         votingSessionId_userId: { votingSessionId: sessionId, userId },
       },
       include: { votingSession: true },
     });
 
+    // If no VoterSession exists, check if user is assigned via a VoterGroup and auto-join
     if (!voterSession) {
-      throw new NotFoundException('You are not assigned to this session');
+      const sessionGroup = await this.prisma.votingSessionGroup.findFirst({
+        where: {
+          votingSessionId: sessionId,
+          voterGroup: {
+            memberships: {
+              some: { userId },
+            },
+          },
+        },
+        include: {
+          votingSession: true,
+          voterGroup: true,
+        },
+      });
+
+      if (!sessionGroup) {
+        throw new NotFoundException('You are not assigned to this session');
+      }
+
+      // Auto-create VoterSession
+      const creditsAllowed =
+        sessionGroup.creditsOverride ??
+        sessionGroup.voterGroup.defaultCredits ??
+        sessionGroup.votingSession.defaultCredits;
+
+      voterSession = await this.prisma.voterSession.create({
+        data: {
+          votingSessionId: sessionId,
+          userId,
+          creditsAllowed,
+          openedAt: new Date(),
+        },
+        include: { votingSession: true },
+      });
     }
 
     if (voterSession.votingSession.status !== 'ACTIVE') {
@@ -742,14 +828,47 @@ export class VotingService {
   }
 
   async markSessionCompleteForUser(sessionId: string, userId: string) {
-    const voterSession = await this.prisma.voterSession.findUnique({
+    let voterSession = await this.prisma.voterSession.findUnique({
       where: {
         votingSessionId_userId: { votingSessionId: sessionId, userId },
       },
     });
 
+    // If no VoterSession exists, check if user is assigned via a VoterGroup and auto-join
     if (!voterSession) {
-      throw new NotFoundException('You are not assigned to this session');
+      const sessionGroup = await this.prisma.votingSessionGroup.findFirst({
+        where: {
+          votingSessionId: sessionId,
+          voterGroup: {
+            memberships: {
+              some: { userId },
+            },
+          },
+        },
+        include: {
+          votingSession: true,
+          voterGroup: true,
+        },
+      });
+
+      if (!sessionGroup) {
+        throw new NotFoundException('You are not assigned to this session');
+      }
+
+      // Auto-create VoterSession
+      const creditsAllowed =
+        sessionGroup.creditsOverride ??
+        sessionGroup.voterGroup.defaultCredits ??
+        sessionGroup.votingSession.defaultCredits;
+
+      voterSession = await this.prisma.voterSession.create({
+        data: {
+          votingSessionId: sessionId,
+          userId,
+          creditsAllowed,
+          openedAt: new Date(),
+        },
+      });
     }
 
     return this.prisma.voterSession.update({
@@ -758,7 +877,105 @@ export class VotingService {
     });
   }
 
+  async getVoterResults(sessionId: string, userId: string) {
+    const voterSession = await this.prisma.voterSession.findUnique({
+      where: {
+        votingSessionId_userId: { votingSessionId: sessionId, userId },
+      },
+      include: {
+        votingSession: {
+          include: {
+            problems: {
+              include: { problem: true },
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!voterSession) {
+      throw new NotFoundException('You are not assigned to this session');
+    }
+
+    // User must have completed voting to see results
+    if (!voterSession.completedAt) {
+      throw new ForbiddenException('Complete your voting to see results');
+    }
+
+    // Get all votes for this session
+    const allVotes = await this.prisma.vote.findMany({
+      where: { votingSessionId: sessionId },
+    });
+
+    // Get user's own votes
+    const userVotes = allVotes.filter((v) => v.userId === userId);
+    const userVoteMap = new Map(userVotes.map((v) => [v.problemId, v]));
+
+    // Get voter session stats
+    const allVoterSessions = await this.prisma.voterSession.findMany({
+      where: { votingSessionId: sessionId },
+    });
+
+    const totalVoters = allVoterSessions.length;
+    const completedVoters = allVoterSessions.filter((vs) => vs.completedAt).length;
+    const totalCreditsAllocated = allVoterSessions.reduce((sum, vs) => sum + vs.creditsAllowed, 0);
+
+    // Calculate results per problem
+    const problemResults = voterSession.votingSession.problems.map((sp) => {
+      const problemVotes = allVotes.filter((v) => v.problemId === sp.problemId);
+      const totalCredits = problemVotes.reduce((sum, v) => sum + v.creditsAssigned, 0);
+      const myVote = userVoteMap.get(sp.problemId);
+
+      return {
+        problem: {
+          id: sp.problem.id,
+          title: sp.problem.title,
+          description: sp.problem.description,
+          tags: sp.problem.tags,
+        },
+        totalCredits,
+        voterCount: problemVotes.length,
+        rank: 0, // Will be set after sorting
+        myVote: myVote
+          ? { credits: myVote.creditsAssigned, comment: myVote.comment }
+          : undefined,
+      };
+    });
+
+    // Sort by total credits and assign ranks
+    problemResults.sort((a, b) => b.totalCredits - a.totalCredits);
+    problemResults.forEach((r, i) => {
+      r.rank = i + 1;
+    });
+
+    const creditsUsed = userVotes.reduce((sum, v) => sum + v.creditsAssigned, 0);
+
+    return {
+      session: {
+        id: voterSession.votingSession.id,
+        title: voterSession.votingSession.title,
+        description: voterSession.votingSession.description,
+        status: voterSession.votingSession.status,
+        deadline: voterSession.votingSession.deadline,
+      },
+      myVoting: {
+        creditsAllowed: voterSession.creditsAllowed,
+        creditsUsed,
+        completedAt: voterSession.completedAt,
+        voteCount: userVotes.length,
+      },
+      summary: {
+        totalVoters,
+        completedVoters,
+        totalCreditsAllocated,
+      },
+      results: problemResults,
+    };
+  }
+
   async getUserAssignedSessions(userId: string) {
+    // 1. Get sessions where user has already joined (has VoterSession)
     const voterSessions = await this.prisma.voterSession.findMany({
       where: { userId },
       include: {
@@ -772,11 +989,50 @@ export class VotingService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Get vote counts for each session
-    const sessionIds = voterSessions.map((vs) => vs.votingSessionId);
+    // 2. Get sessions assigned via VoterGroups (user is member of a group linked to the session)
+    const groupAssignedSessions = await this.prisma.votingSession.findMany({
+      where: {
+        status: 'ACTIVE', // Only show active sessions to voters
+        groups: {
+          some: {
+            voterGroup: {
+              memberships: {
+                some: { userId },
+              },
+            },
+          },
+        },
+        // Exclude sessions user has already joined
+        NOT: {
+          voterSessions: {
+            some: { userId },
+          },
+        },
+      },
+      include: {
+        tenant: { select: { name: true } },
+        _count: { select: { problems: true } },
+        groups: {
+          where: {
+            voterGroup: {
+              memberships: {
+                some: { userId },
+              },
+            },
+          },
+          include: {
+            voterGroup: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Get vote counts for joined sessions
+    const joinedSessionIds = voterSessions.map((vs) => vs.votingSessionId);
     const voteCounts = await this.prisma.vote.groupBy({
       by: ['votingSessionId'],
-      where: { userId, votingSessionId: { in: sessionIds } },
+      where: { userId, votingSessionId: { in: joinedSessionIds } },
       _sum: { creditsAssigned: true },
     });
 
@@ -784,7 +1040,8 @@ export class VotingService {
       voteCounts.map((vc) => [vc.votingSessionId, vc._sum.creditsAssigned || 0]),
     );
 
-    return voterSessions.map((vs) => ({
+    // Format joined sessions
+    const joinedResults = voterSessions.map((vs) => ({
       id: vs.id,
       sessionId: vs.votingSession.id,
       title: vs.votingSession.title,
@@ -799,6 +1056,34 @@ export class VotingService {
       completedAt: vs.completedAt,
       assignedAt: vs.createdAt,
     }));
+
+    // Format group-assigned sessions (not yet joined)
+    const groupResults = groupAssignedSessions.map((session) => {
+      // Get credits from the first matching voter group
+      const sessionGroup = session.groups[0];
+      const creditsAllowed = sessionGroup?.creditsOverride ?? sessionGroup?.voterGroup?.defaultCredits ?? session.defaultCredits;
+
+      return {
+        id: `pending-${session.id}`, // Placeholder ID since no VoterSession exists yet
+        sessionId: session.id,
+        title: session.title,
+        description: session.description,
+        tenantName: session.tenant.name,
+        status: session.status,
+        deadline: session.deadline,
+        problemCount: session._count.problems,
+        creditsAllowed,
+        creditsUsed: 0,
+        openedAt: null,
+        completedAt: null,
+        assignedAt: session.createdAt, // Use session creation as assignment date
+      };
+    });
+
+    // Combine and sort by creation date
+    return [...joinedResults, ...groupResults].sort(
+      (a, b) => new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime(),
+    );
   }
 
   // ========== ADMIN: SESSION VOTERS ==========
@@ -813,7 +1098,7 @@ export class VotingService {
       throw new NotFoundException('Voting session not found');
     }
 
-    // Get all voter sessions (users who joined via public link)
+    // Get all voter sessions (users who have opened the session)
     const voterSessions = await this.prisma.voterSession.findMany({
       where: { votingSessionId: sessionId },
       include: {
@@ -829,16 +1114,36 @@ export class VotingService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Get all voting links (traditional invite links)
+    // Get all voting links (individual invite links)
     const votingLinks = await this.prisma.votingLink.findMany({
       where: { votingSessionId: sessionId },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Get vote counts per user
-    const userIds = voterSessions.map((vs) => vs.userId);
-    const linkEmails = votingLinks.map((l) => l.email);
+    // Get all voter groups assigned to this session and their members
+    const sessionGroups = await this.prisma.votingSessionGroup.findMany({
+      where: { votingSessionId: sessionId },
+      include: {
+        voterGroup: {
+          include: {
+            memberships: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
+    // Get all votes for this session
     const votes = await this.prisma.vote.findMany({
       where: { votingSessionId: sessionId },
       include: {
@@ -858,27 +1163,74 @@ export class VotingService {
       });
     });
 
-    // Map voter sessions (public link users)
-    const publicVoters = voterSessions.map((vs) => {
-      const voteSummary = votesByUser.get(vs.userId) || { count: 0, credits: 0 };
+    // Track which users have VoterSession records
+    const usersWithSession = new Set(voterSessions.map((vs) => vs.userId));
+    const voterSessionByUser = new Map(voterSessions.map((vs) => [vs.userId, vs]));
+
+    // Collect all group members (with their group info)
+    const groupMemberMap = new Map<string, {
+      user: { id: string; email: string; firstName: string | null; lastName: string | null };
+      groupName: string;
+      groupCredits: number;
+    }>();
+
+    for (const sg of sessionGroups) {
+      const creditsOverride = sg.creditsOverride ?? sg.voterGroup.defaultCredits;
+      for (const membership of sg.voterGroup.memberships) {
+        if (!groupMemberMap.has(membership.userId)) {
+          groupMemberMap.set(membership.userId, {
+            user: membership.user,
+            groupName: sg.voterGroup.name,
+            groupCredits: creditsOverride,
+          });
+        }
+      }
+    }
+
+    // Build voter list from group members
+    const groupVoters = Array.from(groupMemberMap.entries()).map(([userId, data]) => {
+      const voterSession = voterSessionByUser.get(userId);
+      const voteSummary = votesByUser.get(userId) || { count: 0, credits: 0 };
+      const hasOpened = !!voterSession;
+
       return {
-        id: vs.id,
-        type: 'public' as const,
-        email: vs.user.email,
-        name: [vs.user.firstName, vs.user.lastName].filter(Boolean).join(' ') || null,
-        userId: vs.userId,
-        creditsAllowed: vs.creditsAllowed,
+        id: voterSession?.id || `group-${userId}`,
+        type: 'group' as const,
+        email: data.user.email,
+        name: [data.user.firstName, data.user.lastName].filter(Boolean).join(' ') || null,
+        userId: userId,
+        groupName: data.groupName,
+        creditsAllowed: voterSession?.creditsAllowed ?? data.groupCredits,
         creditsUsed: voteSummary.credits,
         voteCount: voteSummary.count,
-        openedAt: vs.openedAt,
-        completedAt: vs.completedAt,
-        createdAt: vs.createdAt,
+        openedAt: voterSession?.openedAt || null,
+        completedAt: voterSession?.completedAt || null,
+        createdAt: voterSession?.createdAt || null,
       };
     });
 
-    // Map voting links (invite link users)
+    // Map voter sessions for public link users (not in any group)
+    const publicVoters = voterSessions
+      .filter((vs) => !groupMemberMap.has(vs.userId))
+      .map((vs) => {
+        const voteSummary = votesByUser.get(vs.userId) || { count: 0, credits: 0 };
+        return {
+          id: vs.id,
+          type: 'public' as const,
+          email: vs.user.email,
+          name: [vs.user.firstName, vs.user.lastName].filter(Boolean).join(' ') || null,
+          userId: vs.userId,
+          creditsAllowed: vs.creditsAllowed,
+          creditsUsed: voteSummary.credits,
+          voteCount: voteSummary.count,
+          openedAt: vs.openedAt,
+          completedAt: vs.completedAt,
+          createdAt: vs.createdAt,
+        };
+      });
+
+    // Map voting links (individual invite links)
     const linkVoters = votingLinks.map((link) => {
-      // Find if there's a user with this email who voted
       const userVotes = votes.filter((v) => v.user.email === link.email);
       const userId = userVotes[0]?.userId;
       const voteSummary = userId ? votesByUser.get(userId) : null;
@@ -893,12 +1245,16 @@ export class VotingService {
         creditsUsed: voteSummary?.credits || 0,
         voteCount: voteSummary?.count || 0,
         openedAt: link.usedAt,
-        completedAt: null, // Links don't track completion
+        completedAt: null,
         createdAt: link.createdAt,
         token: link.token,
         expiresAt: link.expiresAt,
       };
     });
+
+    const allVoters = [...groupVoters, ...publicVoters, ...linkVoters];
+    const completedCount = allVoters.filter((v) => v.completedAt).length;
+    const openedCount = allVoters.filter((v) => v.openedAt).length;
 
     return {
       session: {
@@ -908,13 +1264,14 @@ export class VotingService {
         isPublic: session.isPublic,
       },
       summary: {
-        totalVoters: publicVoters.length + linkVoters.length,
+        totalVoters: allVoters.length,
+        groupVoters: groupVoters.length,
         publicVoters: publicVoters.length,
         linkVoters: linkVoters.length,
-        completedCount: publicVoters.filter((v) => v.completedAt).length,
-        openedCount: publicVoters.filter((v) => v.openedAt).length + linkVoters.filter((v) => v.openedAt).length,
+        completedCount,
+        openedCount,
       },
-      voters: [...publicVoters, ...linkVoters],
+      voters: allVoters,
     };
   }
 
@@ -1070,7 +1427,6 @@ export class VotingService {
             id: true,
             name: true,
             type: true,
-            weight: true,
             defaultCredits: true,
           },
         },
@@ -1116,13 +1472,11 @@ export class VotingService {
       const problemRankings = sessionProblems.map((sp) => {
         const problemVotes = groupVotes.filter((v) => v.problemId === sp.problemId);
         const totalCredits = problemVotes.reduce((acc, v) => acc + v.creditsAssigned, 0);
-        const weightedCredits = totalCredits * group.weight;
 
         return {
           problemId: sp.problem.id,
           title: sp.problem.title,
           totalCredits,
-          weightedCredits,
           voterCount: problemVotes.length,
         };
       });
@@ -1141,7 +1495,6 @@ export class VotingService {
           id: group.id,
           name: group.name,
           type: group.type,
-          weight: group.weight,
         },
         totalVoters: new Set(groupVotes.map((v) => v.userId)).size,
         totalVotes: groupVotes.length,
@@ -1161,7 +1514,6 @@ export class VotingService {
           problemId: sp.problem.id,
           title: sp.problem.title,
           totalCredits,
-          weightedCredits: totalCredits,
           voterCount: problemVotes.length,
         };
       });
@@ -1178,7 +1530,6 @@ export class VotingService {
           id: 'ungrouped',
           name: 'Other Voters',
           type: 'EXTERNAL_USER',
-          weight: 1,
         },
         totalVoters: new Set(ungroupedVotes.map((v) => v.userId)).size,
         totalVotes: ungroupedVotes.length,

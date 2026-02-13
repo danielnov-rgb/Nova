@@ -1,11 +1,63 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { isAuthenticated, getUser, clearAuth } from "./_lib/auth";
-import type { AuthUser } from "./_lib/types";
+import { isAuthenticated, getUser, clearAuth, setAuth } from "./_lib/auth";
+import type { AuthUser, LoginResponse } from "./_lib/types";
 import { NovaLogo } from "../_components/shared/NovaLogo";
+import { DemoModePopup, useDemoModePopup } from "./_components/DemoModePopup";
+import { isDemoModeError, DemoModeError, isReadOnly, canManageProblems, canManageSessions, canAccessAdminSessions, shouldUseVoterInterface } from "./_lib/permissions";
+import { authApi } from "./_lib/api";
+
+// Demo users for quick switching during testing
+// Groups marked as "Full Access" can manage sessions, others use voter interface
+const DEMO_USERS = {
+  "FDE Team": [
+    { name: "FDE Admin", email: "fde@novademo.com" },
+  ],
+  "Product Team": [
+    { name: "Daniel", email: "daniel@novademo.com" },
+    { name: "Jacques", email: "jacques@novademo.com" },
+    { name: "Ray", email: "ray@novademo.com" },
+  ],
+  "Leadership": [
+    { name: "Steven", email: "steven@novademo.com" },
+    { name: "Marcel", email: "marcel@novademo.com" },
+  ],
+  "Team Members": [
+    { name: "Meagan", email: "meagan@novademo.com" },
+    { name: "Matt", email: "matt@novademo.com" },
+  ],
+  "Clients": [
+    { name: "Werner", email: "werner@novademo.com" },
+    { name: "Isak", email: "isak@novademo.com" },
+  ],
+};
+
+// Groups with full admin access
+const FULL_ACCESS_GROUPS = ["FDE Team", "Product Team"];
+
+// Context for permission checks
+interface AdminContextType {
+  user: AuthUser | null;
+  isReadOnly: boolean;
+  canManageProblems: boolean;
+  canManageSessions: boolean;
+  isDemoMode: boolean;
+  showDemoError: (error: DemoModeError) => void;
+  handleApiError: (error: unknown) => boolean; // Returns true if it was a demo mode error
+}
+
+const AdminContext = createContext<AdminContextType | null>(null);
+
+export function useAdminContext() {
+  const ctx = useContext(AdminContext);
+  if (!ctx) {
+    throw new Error("useAdminContext must be used within AdminLayout");
+  }
+  return ctx;
+}
 
 export default function AdminLayout({
   children,
@@ -17,7 +69,49 @@ export default function AdminLayout({
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checking, setChecking] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userSwitcherOpen, setUserSwitcherOpen] = useState(false);
+  const [switchingUser, setSwitchingUser] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userSwitcherRef = useRef<HTMLDivElement>(null);
+  const { error: demoError, showDemoError, clearError } = useDemoModePopup();
+
+  // Switch to a different demo user
+  async function handleSwitchUser(email: string) {
+    setSwitchingUser(true);
+    try {
+      const response = await authApi.login(email, "demo123");
+      clearAuth();
+      setAuth(response);
+      setUser(response.user);
+      setUserSwitcherOpen(false);
+
+      // Check if we need to redirect based on new user's permissions
+      const isOnSessionsRoute = pathname.startsWith("/admin/sessions");
+      const newUserShouldUseVoter = shouldUseVoterInterface(response.user);
+
+      if (isOnSessionsRoute && newUserShouldUseVoter) {
+        // Redirect to voter dashboard if new user can't access admin sessions
+        window.location.href = "/voter/dashboard";
+      } else {
+        // Refresh the page to reload data with new user
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("Failed to switch user:", err);
+      alert("Failed to switch user. Please try again.");
+    } finally {
+      setSwitchingUser(false);
+    }
+  }
+
+  // Handle API errors and show demo mode popup if applicable
+  const handleApiError = useCallback((error: unknown): boolean => {
+    if (isDemoModeError(error)) {
+      showDemoError(error);
+      return true;
+    }
+    return false;
+  }, [showDemoError]);
 
   useEffect(() => {
     // Skip auth check for login page
@@ -31,24 +125,38 @@ export default function AdminLayout({
       return;
     }
 
-    setUser(getUser());
+    const currentUser = getUser();
+    setUser(currentUser);
+
+    // Role-based route protection for sessions
+    const isSessionsRoute = pathname.startsWith("/admin/sessions");
+    if (isSessionsRoute && shouldUseVoterInterface(currentUser)) {
+      // Redirect non-admin users to voter dashboard
+      router.push("/voter/dashboard");
+      return;
+    }
+
     setChecking(false);
   }, [pathname, router]);
 
-  // Close menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
+      }
+      if (userSwitcherRef.current && !userSwitcherRef.current.contains(event.target as Node)) {
+        setUserSwitcherOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close menu on route change
+  // Close menus on route change
   useEffect(() => {
     setMenuOpen(false);
+    setUserSwitcherOpen(false);
   }, [pathname]);
 
   function handleLogout() {
@@ -88,10 +196,39 @@ export default function AdminLayout({
   ];
   const isMoreMenuActive = moreMenuPaths.some(path => pathname.startsWith(path));
 
+  // Build context value
+  const contextValue: AdminContextType = {
+    user,
+    isReadOnly: isReadOnly(user),
+    canManageProblems: canManageProblems(user),
+    canManageSessions: canManageSessions(user),
+    isDemoMode: user?.isDemoMode ?? false,
+    showDemoError,
+    handleApiError,
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <AdminContext.Provider value={contextValue}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        {/* Demo Mode Popup */}
+        <DemoModePopup error={demoError} onClose={clearError} />
+
+        {/* Demo Mode Banner */}
+        {user?.isDemoMode && (
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2">
+            <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <span className="font-medium">Demo Mode</span>
+              <span className="text-purple-200">— You're exploring Nova. Changes won't be saved.</span>
+            </div>
+          </div>
+        )}
+
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
@@ -102,39 +239,123 @@ export default function AdminLayout({
                 </span>
               </div>
 
-              {/* Main Navigation - Only Problems & Voting */}
+              {/* Main Navigation - Role-based */}
               <nav className="flex items-center gap-1">
                 <NavLink href="/admin/problems" current={pathname.startsWith("/admin/problems")}>
                   Problems
                 </NavLink>
-                <NavLink href="/admin/sessions" current={pathname.startsWith("/admin/sessions")}>
-                  Voting
-                </NavLink>
+                {canAccessAdminSessions(user) && (
+                  <NavLink href="/admin/sessions" current={pathname.startsWith("/admin/sessions")}>
+                    Voting
+                  </NavLink>
+                )}
+                {shouldUseVoterInterface(user) && (
+                  <NavLink href="/voter/dashboard" current={pathname.startsWith("/voter")}>
+                    My Votes
+                  </NavLink>
+                )}
               </nav>
             </div>
 
-            {/* Right side - User menu dropdown */}
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isMoreMenuActive
-                    ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                }`}
-              >
-                {user?.email && (
-                  <span className="hidden sm:inline max-w-32 truncate">{user.email}</span>
-                )}
-                <svg
-                  className={`w-4 h-4 transition-transform ${menuOpen ? "rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {/* Right side - User switcher + Menu dropdown */}
+            <div className="flex items-center gap-2">
+              {/* User Switcher for Testing */}
+              <div className="relative" ref={userSwitcherRef}>
+                <button
+                  onClick={() => setUserSwitcherOpen(!userSwitcherOpen)}
+                  disabled={switchingUser}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+                  {switchingUser ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-500" />
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline max-w-24 truncate">
+                    {user?.firstName || user?.email?.split("@")[0] || "User"}
+                  </span>
+                  <svg
+                    className={`w-3 h-3 transition-transform ${userSwitcherOpen ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* User Switcher Dropdown */}
+                {userSwitcherOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50 max-h-96 overflow-y-auto">
+                    <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Switch User (Testing)
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        Current: {user?.email}
+                      </p>
+                    </div>
+                    {Object.entries(DEMO_USERS).map(([group, users]) => {
+                      const hasFullAccess = FULL_ACCESS_GROUPS.includes(group);
+                      return (
+                      <div key={group}>
+                        <div className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            {group}
+                          </p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                            hasFullAccess
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          }`}>
+                            {hasFullAccess ? "Full Access" : "Voter"}
+                          </span>
+                        </div>
+                        {users.map((demoUser) => (
+                          <button
+                            key={demoUser.email}
+                            onClick={() => handleSwitchUser(demoUser.email)}
+                            disabled={switchingUser || user?.email === demoUser.email}
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 ${
+                              user?.email === demoUser.email
+                                ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
+                                : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            } disabled:opacity-50`}
+                          >
+                            <span className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium">
+                              {demoUser.name.charAt(0)}
+                            </span>
+                            <span>{demoUser.name}</span>
+                            {user?.email === demoUser.email && (
+                              <svg className="w-4 h-4 ml-auto text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Menu dropdown */}
+              <div className="relative" ref={menuRef}>
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isMoreMenuActive
+                      ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
 
               {/* Dropdown Menu */}
               {menuOpen && (
@@ -212,14 +433,16 @@ export default function AdminLayout({
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main>{children}</main>
-    </div>
+        {/* Main content */}
+        <main>{children}</main>
+      </div>
+    </AdminContext.Provider>
   );
 }
 

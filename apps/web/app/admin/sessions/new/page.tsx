@@ -29,11 +29,12 @@ export default function CreateSessionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(1);
+  // Pre-populate with test data for faster testing
   const [formData, setFormData] = useState<SessionFormData>({
-    title: "",
-    description: "",
-    deadline: "",
-    defaultCredits: 10,
+    title: "Q1 2026 Priority Vote",
+    description: "Vote on the most important problems to tackle this quarter. You have limited credits - use them wisely!",
+    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 1 week from now
+    defaultCredits: 25,
     sprintId: "",
   });
   const [problems, setProblems] = useState<Problem[]>([]);
@@ -71,6 +72,43 @@ export default function CreateSessionPage() {
       setProblems(problemsData);
       setVoterGroups(groupsData);
       setSprints(sprintsData);
+
+      // Auto-select first 5 problems for testing
+      if (problemsData.length > 0 && !searchParams.get("problemIds")) {
+        const autoSelectIds = problemsData.slice(0, 5).map((p) => p.id);
+        setSelectedProblemIds(new Set(autoSelectIds));
+      }
+
+      // Auto-add voters from first 2 groups for testing
+      if (groupsData.length > 0) {
+        const groupsToAdd = groupsData.slice(0, 2);
+        const votersToAdd: SelectedVoter[] = [];
+
+        for (const group of groupsToAdd) {
+          try {
+            const members = await voterGroupsApi.getMembers(group.id);
+            for (const member of members) {
+              votersToAdd.push({
+                id: `${group.id}-${member.user.id}`,
+                source: "group",
+                email: member.user.email,
+                name: member.user.firstName && member.user.lastName
+                  ? `${member.user.firstName} ${member.user.lastName}`
+                  : member.user.firstName || undefined,
+                type: group.type,
+                sourceGroupId: group.id,
+                sourceGroupName: group.name,
+              });
+            }
+          } catch (err) {
+            console.warn(`Failed to load members for group ${group.name}:`, err);
+          }
+        }
+
+        if (votersToAdd.length > 0) {
+          setSelectedVoters(votersToAdd);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -120,6 +158,13 @@ export default function CreateSessionPage() {
     setError(null);
 
     try {
+      // Extract unique voter group IDs from selected voters
+      const voterGroupIds = [...new Set(
+        selectedVoters
+          .filter((v) => v.source === "group" && v.sourceGroupId)
+          .map((v) => v.sourceGroupId!)
+      )];
+
       const session = await sessionsApi.create({
         title: formData.title,
         description: formData.description || undefined,
@@ -127,6 +172,7 @@ export default function CreateSessionPage() {
         problemIds: Array.from(selectedProblemIds),
         sprintId: formData.sprintId || undefined,
         defaultCredits: formData.defaultCredits,
+        voterGroupIds: voterGroupIds.length > 0 ? voterGroupIds : undefined,
         // Store additional config (requiredFields will be saved in config JSON)
         config: requiredFields.length > 0 ? { requiredFields } : undefined,
       });
