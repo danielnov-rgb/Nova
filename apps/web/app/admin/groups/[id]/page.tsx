@@ -158,7 +158,7 @@ export default function VoterGroupDetailPage({ params }: { params: Promise<{ id:
           </div>
           <div className="text-right text-sm text-gray-500 dark:text-gray-500">
             <p>{group.defaultCredits} credits</p>
-            <p>{group.weight}x weight</p>
+            <p>{group.weight ?? 1}x weight</p>
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ import {
 export default function TogetherPOCReport() {
   return (
     <main>
-      {/* Hero Section - 8-11x acceleration headline */}
+      {/* Hero Section - 6-8x acceleration headline */}
       <HeroSection />
 
       {/* Section divider */}

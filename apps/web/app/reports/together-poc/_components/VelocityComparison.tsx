@@ -118,7 +118,7 @@ export function VelocityComparison() {
               <div className="text-sm text-gray-400 mt-1">Cumulative delivery time</div>
             </div>
             <div className="col-span-4">
-              <div className="text-3xl font-bold text-red-400">18-20 weeks</div>
+              <div className="text-3xl font-bold text-red-400">17-24 weeks</div>
               <div className="text-sm text-gray-500 mt-1">~{Math.round(totalWeeks)} weeks average</div>
             </div>
             <div className="col-span-3 text-right">
@@ -132,7 +132,7 @@ export function VelocityComparison() {
         <div className={`flex justify-center mt-8 transition-all duration-700 delay-1200 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <div className="inline-flex items-center gap-4 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary-900/50 to-cyan-900/50 border border-primary-700/50">
             <div className="text-4xl font-bold bg-gradient-to-r from-primary-400 to-cyan-400 bg-clip-text text-transparent">
-              8-11x
+              6-8x
             </div>
             <div className="text-left">
               <div className="text-white font-semibold">Acceleration Factor</div>

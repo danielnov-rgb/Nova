@@ -1,5 +1,6 @@
 import {
   ProposalNav,
+  FloatingTOC,
   HeroSection,
   ExecutiveSummary,
   DeliverablesSection,
@@ -16,6 +17,7 @@ export default function ProposalPage() {
   return (
     <>
       <ProposalNav />
+      <FloatingTOC />
 
       <main>
         {/* Hero — full viewport */}

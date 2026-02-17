@@ -2,6 +2,7 @@ export { AnimatedSection } from "./AnimatedSection";
 export { AuthGate } from "./AuthGate";
 export { ProposalShell } from "./ProposalShell";
 export { ProposalNav } from "./ProposalNav";
+export { FloatingTOC } from "./FloatingTOC";
 export { HeroSection } from "./HeroSection";
 export { ExecutiveSummary } from "./ExecutiveSummary";
 export { DeliverablesSection } from "./DeliverablesSection";

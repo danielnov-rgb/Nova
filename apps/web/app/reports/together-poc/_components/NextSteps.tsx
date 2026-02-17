@@ -96,33 +96,32 @@ export function NextSteps() {
           </div>
         </div>
 
-        {/* Contact section */}
-        <div className={`bg-gradient-to-r from-primary-900/30 to-cyan-900/30 border border-primary-700/30 rounded-2xl p-8 text-center transition-all duration-700 delay-400 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-          <h3 className="text-xl font-bold text-white mb-2">
-            Ready to Continue?
-          </h3>
-          <p className="text-gray-400 mb-8 max-w-lg mx-auto">
-            Contact the team to discuss next steps, pricing, and timeline.
-          </p>
+        {/* Contact section - Enhanced CTA */}
+        <div className={`relative transition-all duration-700 delay-400 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          {/* Animated glow effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-cyan-500 to-primary-500 rounded-3xl blur-2xl opacity-20 animate-pulse" />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-cyan-500/30 rounded-3xl blur-xl" />
 
-          <div className="flex flex-wrap justify-center gap-4">
-            {contactTeam.map((person) => (
-              <a
-                key={person.email}
-                href={`mailto:${person.email}`}
-                className="group flex items-center gap-3 bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 hover:border-primary-500/50 hover:bg-gray-900/80 transition-all"
-              >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-cyan-500 flex items-center justify-center text-white font-bold">
-                  {person.name[0]}
-                </div>
-                <div className="text-left">
-                  <div className="font-medium text-white group-hover:text-primary-400 transition-colors">
-                    {person.name}
-                  </div>
-                  <div className="text-sm text-gray-500">{person.role}</div>
-                </div>
-              </a>
-            ))}
+          <div className="relative bg-gray-900/90 backdrop-blur border border-gray-700/50 rounded-3xl p-12 text-center">
+            <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Ready to Continue?
+            </h3>
+            <p className="text-lg text-gray-400 mb-10 max-w-md mx-auto">
+              Let's discuss how to take this POC forward
+            </p>
+
+            <a
+              href={`mailto:${contactTeam[0].email}`}
+              className="group inline-flex items-center gap-4 px-10 py-5 bg-gradient-to-r from-primary-500 to-cyan-500 rounded-2xl text-white font-semibold text-xl hover:scale-105 hover:shadow-2xl hover:shadow-primary-500/25 transition-all duration-300"
+            >
+              <svg className="w-6 h-6 transition-transform group-hover:-translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span>Get in Touch with {contactTeam[0].name}</span>
+              <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </a>
           </div>
         </div>
 

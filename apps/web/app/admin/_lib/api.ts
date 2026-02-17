@@ -11,7 +11,6 @@ import {
   UpdateSessionDto,
   CreateLinkDto,
   LoginResponse,
-  SessionVotersResponse,
   VoterDetailResponse,
   VoterGroup,
   TeamCode,

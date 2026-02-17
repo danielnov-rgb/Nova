@@ -11,7 +11,7 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section id="overview" className="relative min-h-screen flex flex-col items-center justify-center px-4 overflow-hidden">
+    <section id="overview" className="relative min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-4 overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary-900/20 via-gray-950 to-gray-950" />
 

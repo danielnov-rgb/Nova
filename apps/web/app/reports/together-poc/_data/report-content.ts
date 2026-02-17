@@ -5,8 +5,8 @@ export const reportMeta = {
   title: "Together POC",
   subtitle: "Development Velocity Report",
   generatedDate: "February 2026",
-  accelerationFactor: "8-11x",
-  traditionalEstimate: "18-20 weeks",
+  accelerationFactor: "6-8x",
+  traditionalEstimate: "17-24 weeks",
   pocPeriod: "3 weeks",
 };
 
@@ -14,9 +14,9 @@ export const headlineMetrics = [
   { label: "UI Components", value: 103, suffix: "" },
   { label: "Go-Card Types", value: 11, suffix: "" },
   { label: "AI-Powered Tools", value: 6, suffix: "" },
-  { label: "Learning Paths", value: 2, suffix: "" },
-  { label: "Milestones", value: 12, suffix: "" },
-  { label: "Go-Cards Authored", value: 65, suffix: "+" },
+  { label: "Learning Paths", value: 1, suffix: "" },
+  { label: "Milestones", value: 6, suffix: "" },
+  { label: "Go-Cards Authored", value: 29, suffix: "" },
   { label: "Service Modules", value: 15, suffix: "" },
   { label: "Lines of Code", value: 35000, suffix: "+" },
 ];
@@ -270,7 +270,5 @@ export const accelerationInsights = [
 ];
 
 export const contactTeam = [
-  { name: "Daniel", email: "daniel@novademo.com", role: "Technical Lead" },
-  { name: "Jacques", email: "jacques@novademo.com", role: "Product Lead" },
-  { name: "Ray", email: "ray@novademo.com", role: "Design Lead" },
+  { name: "Daniel", email: "daniel@novademo.com" },
 ];

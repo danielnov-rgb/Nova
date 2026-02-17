@@ -263,6 +263,7 @@ export interface VoterGroup {
   type: VoterGroupType;
   description?: string;
   defaultCredits: number;
+  weight?: number;
   createdAt: string;
   updatedAt: string;
   teamCodes?: TeamCode[];
@@ -314,6 +315,7 @@ export interface CreateVoterGroupDto {
   name: string;
   type: VoterGroupType;
   description?: string;
+  weight?: number;
   defaultCredits?: number;
 }
 

@@ -161,8 +161,8 @@ export const teamMembers = [
     expertise: "Frontend implementation, system integration, performance",
   },
   {
-    name: "Charles",
-    initials: "CH",
+    name: "FDE 3",
+    initials: "03",
     role: "Analytics & Intelligence",
     expertise: "Analytics integration, continuous improvement, data engineering",
   },

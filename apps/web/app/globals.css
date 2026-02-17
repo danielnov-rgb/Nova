@@ -27,3 +27,159 @@
     @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
   }
 }
+
+/* ============================================
+   Astrolytics Light Theme Overrides
+   Scoped to .astro-light so they don't leak
+   ============================================ */
+
+.astro-light {
+  --astro-bg-base: #ffffff;
+  --astro-bg-surface: #f8fafc;
+  --astro-bg-card: rgba(241, 245, 249, 0.7);
+  --astro-border: #e2e8f0;
+  --astro-border-hover: #cbd5e1;
+  --astro-text-primary: #0f172a;
+  --astro-text-secondary: #475569;
+  --astro-text-muted: #94a3b8;
+}
+
+/* Base backgrounds */
+.astro-light .bg-gray-950 { background-color: var(--astro-bg-base) !important; }
+.astro-light .bg-gray-900 { background-color: var(--astro-bg-surface) !important; }
+.astro-light .bg-gray-900\/50 { background-color: var(--astro-bg-card) !important; }
+.astro-light .bg-gray-900\/30 { background-color: rgba(241, 245, 249, 0.5) !important; }
+.astro-light .bg-gray-800 { background-color: #f1f5f9 !important; }
+.astro-light .bg-gray-800\/50 { background-color: rgba(241, 245, 249, 0.6) !important; }
+
+/* Borders */
+.astro-light .border-gray-800 { border-color: var(--astro-border) !important; }
+.astro-light .border-gray-800\/50 { border-color: rgba(226, 232, 240, 0.5) !important; }
+.astro-light .border-gray-700 { border-color: var(--astro-border-hover) !important; }
+
+/* Text */
+.astro-light .text-white { color: var(--astro-text-primary) !important; }
+.astro-light .text-gray-300 { color: var(--astro-text-secondary) !important; }
+.astro-light .text-gray-400 { color: var(--astro-text-secondary) !important; }
+.astro-light .text-gray-500 { color: var(--astro-text-muted) !important; }
+.astro-light .text-gray-600 { color: var(--astro-text-muted) !important; }
+
+/* Gradient orb backgrounds — softer in light mode */
+.astro-light .bg-primary-500\/10 { background-color: rgba(14, 165, 233, 0.06) !important; }
+.astro-light .bg-primary-500\/20 { background-color: rgba(14, 165, 233, 0.08) !important; }
+.astro-light .bg-cyan-500\/10 { background-color: rgba(34, 211, 238, 0.06) !important; }
+.astro-light .bg-cyan-500\/15 { background-color: rgba(34, 211, 238, 0.08) !important; }
+
+/* Sidebar in light mode */
+.astro-light .bg-gray-950\/95 { background-color: rgba(255, 255, 255, 0.95) !important; }
+
+/* Badge / pill backgrounds */
+.astro-light .bg-gray-800\/50 { background-color: rgba(241, 245, 249, 0.8) !important; }
+
+/* Backdrop blur panels */
+.astro-light .backdrop-blur-sm { backdrop-filter: blur(4px); }
+
+/* Section divider */
+.astro-light .via-gray-800 { --tw-gradient-via: #e2e8f0 !important; }
+
+/* Tooltip-like hover surfaces */
+.astro-light .hover\:bg-gray-800\/50:hover { background-color: rgba(226, 232, 240, 0.5) !important; }
+.astro-light .hover\:border-gray-700:hover { border-color: #cbd5e1 !important; }
+
+/* Gradient badge row */
+.astro-light .from-primary-900\/50 { --tw-gradient-from: rgba(12, 74, 110, 0.08) !important; }
+.astro-light .to-cyan-900\/50 { --tw-gradient-to: rgba(22, 78, 99, 0.08) !important; }
+.astro-light .border-primary-700\/50 { border-color: rgba(3, 105, 161, 0.2) !important; }
+
+/* ============================================
+   Proposal Light Theme Overrides
+   Scoped to .proposal-light so they don't leak
+   ============================================ */
+
+.proposal-light {
+  --proposal-bg-base: #ffffff;
+  --proposal-bg-surface: #f8fafc;
+  --proposal-bg-card: rgba(241, 245, 249, 0.7);
+  --proposal-border: #e2e8f0;
+  --proposal-border-hover: #cbd5e1;
+  --proposal-text-primary: #0f172a;
+  --proposal-text-secondary: #475569;
+  --proposal-text-muted: #94a3b8;
+}
+
+/* Base backgrounds */
+.proposal-light .bg-gray-950 { background-color: var(--proposal-bg-base) !important; }
+.proposal-light .bg-gray-950\/80 { background-color: rgba(255, 255, 255, 0.8) !important; }
+.proposal-light .bg-gray-950\/95 { background-color: rgba(255, 255, 255, 0.95) !important; }
+.proposal-light .bg-gray-900 { background-color: var(--proposal-bg-surface) !important; }
+.proposal-light .bg-gray-900\/90 { background-color: rgba(248, 250, 252, 0.95) !important; }
+.proposal-light .bg-gray-900\/70 { background-color: rgba(248, 250, 252, 0.85) !important; }
+.proposal-light .bg-gray-900\/50 { background-color: var(--proposal-bg-card) !important; }
+.proposal-light .bg-gray-900\/30 { background-color: rgba(241, 245, 249, 0.5) !important; }
+.proposal-light .bg-gray-800 { background-color: #f1f5f9 !important; }
+.proposal-light .bg-gray-800\/50 { background-color: rgba(241, 245, 249, 0.6) !important; }
+.proposal-light .bg-gray-800\/30 { background-color: rgba(241, 245, 249, 0.4) !important; }
+.proposal-light .bg-gray-700 { background-color: #e2e8f0 !important; }
+.proposal-light .bg-gray-600 { background-color: #cbd5e1 !important; }
+.proposal-light .bg-gray-500 { background-color: #94a3b8 !important; }
+
+/* Borders */
+.proposal-light .border-gray-800 { border-color: var(--proposal-border) !important; }
+.proposal-light .border-gray-800\/50 { border-color: rgba(226, 232, 240, 0.5) !important; }
+.proposal-light .border-gray-700 { border-color: var(--proposal-border-hover) !important; }
+.proposal-light .border-gray-700\/50 { border-color: rgba(203, 213, 225, 0.5) !important; }
+.proposal-light .border-gray-600 { border-color: #cbd5e1 !important; }
+.proposal-light .border-cyan-800\/50 { border-color: rgba(14, 165, 233, 0.2) !important; }
+.proposal-light .border-primary-800\/50 { border-color: rgba(14, 165, 233, 0.2) !important; }
+.proposal-light .border-primary-500\/30 { border-color: rgba(14, 165, 233, 0.25) !important; }
+.proposal-light .border-primary-500\/20 { border-color: rgba(14, 165, 233, 0.15) !important; }
+.proposal-light .border-primary-700\/50 { border-color: rgba(3, 105, 161, 0.2) !important; }
+
+/* Text */
+.proposal-light .text-white { color: var(--proposal-text-primary) !important; }
+.proposal-light .text-gray-300 { color: var(--proposal-text-secondary) !important; }
+.proposal-light .text-gray-400 { color: var(--proposal-text-secondary) !important; }
+.proposal-light .text-gray-500 { color: var(--proposal-text-muted) !important; }
+.proposal-light .text-gray-600 { color: var(--proposal-text-muted) !important; }
+.proposal-light .text-gray-700 { color: #64748b !important; }
+
+/* Gradient stops — hero and section gradients */
+.proposal-light .via-gray-950 { --tw-gradient-via: #ffffff !important; }
+.proposal-light .to-gray-950 { --tw-gradient-to: #ffffff !important; }
+.proposal-light .from-primary-900\/20 { --tw-gradient-from: rgba(14, 165, 233, 0.05) !important; }
+.proposal-light .from-transparent { --tw-gradient-from: transparent !important; }
+.proposal-light .to-transparent { --tw-gradient-to: transparent !important; }
+
+/* Gradient orb backgrounds — softer in light mode */
+.proposal-light .bg-primary-500\/10 { background-color: rgba(14, 165, 233, 0.06) !important; }
+.proposal-light .bg-primary-500\/20 { background-color: rgba(14, 165, 233, 0.08) !important; }
+.proposal-light .bg-primary-500\/30 { background-color: rgba(14, 165, 233, 0.08) !important; }
+.proposal-light .bg-cyan-500\/10 { background-color: rgba(34, 211, 238, 0.06) !important; }
+.proposal-light .bg-cyan-500\/15 { background-color: rgba(34, 211, 238, 0.08) !important; }
+.proposal-light .bg-cyan-500\/20 { background-color: rgba(34, 211, 238, 0.06) !important; }
+
+/* Badge / pill backgrounds */
+.proposal-light .bg-primary-900\/20 { background-color: rgba(14, 165, 233, 0.06) !important; }
+.proposal-light .bg-cyan-900\/20 { background-color: rgba(34, 211, 238, 0.06) !important; }
+.proposal-light .bg-green-900\/20 { background-color: rgba(34, 197, 94, 0.06) !important; }
+.proposal-light .bg-purple-900\/20 { background-color: rgba(168, 85, 247, 0.06) !important; }
+
+/* Section divider */
+.proposal-light .via-gray-800 { --tw-gradient-via: #e2e8f0 !important; }
+
+/* Hover surfaces */
+.proposal-light .hover\:bg-gray-800\/50:hover { background-color: rgba(226, 232, 240, 0.5) !important; }
+.proposal-light .hover\:border-gray-700:hover { border-color: #cbd5e1 !important; }
+.proposal-light .hover\:text-gray-300:hover { color: var(--proposal-text-secondary) !important; }
+
+/* Gradient badge rows */
+.proposal-light .from-primary-900\/50 { --tw-gradient-from: rgba(12, 74, 110, 0.08) !important; }
+.proposal-light .to-cyan-900\/50 { --tw-gradient-to: rgba(22, 78, 99, 0.08) !important; }
+
+/* Form inputs */
+.proposal-light .placeholder-gray-500::placeholder { color: #94a3b8 !important; }
+
+/* Shadow adjustments — lighter in light mode */
+.proposal-light .shadow-black\/20 { --tw-shadow-color: rgba(0, 0, 0, 0.05) !important; }
+.proposal-light .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08) !important; }
+.proposal-light .hover\:shadow-primary-500\/25:hover { --tw-shadow-color: rgba(14, 165, 233, 0.15) !important; }
