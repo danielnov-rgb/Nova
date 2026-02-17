@@ -1,0 +1,257 @@
+{
+  "batch_id": "batch_20260211_103502",
+  "source_file": "MS - PD - S1 - Problem Scoring v28112025.xlsx",
+  "processed_at": "2026-02-11T10:35:02.072043",
+  "total_problems": 2,
+  "enrichment_model": "claude-sonnet-4-20250514",
+  "total_tokens_used": 0,
+  "processing_time_seconds": 0.0,
+  "problems": [
+    {
+      "id": "prob-8236991d",
+      "tenantId": "demo-tenant",
+      "sprintId": null,
+      "title": "The Evidence Deficit: Graduates in non-creative fields (business, analysis) lack tangible artifacts or portfolios to prove their capability beyond their academic transcript.",
+      "description": "The Evidence Deficit: Graduates in non-creative fields (business, analysis) lack tangible artifacts or portfolios to prove their capability beyond their academic transcript.",
+      "hypothesis": null,
+      "source": "IMPORT",
+      "evidenceItems": [],
+      "evidenceSummary": null,
+      "scores": {
+        "applicability": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "severity": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "frequency": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "willingnessToPay": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "retentionImpact": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "acquisitionPotential": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "viralCoefficient": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "strategicFit": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "feasibility": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "timeToValue": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "riskLevel": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        }
+      },
+      "priorityScore": null,
+      "status": "DISCOVERED",
+      "isShortlisted": false,
+      "shortlistOrder": null,
+      "tags": [],
+      "groupIds": [],
+      "createdAt": "2026-02-11T10:35:02.071279",
+      "updatedAt": "2026-02-11T10:35:02.071284",
+      "createdBy": "problem-enricher",
+      "lastScoredAt": null,
+      "lastScoredBy": null
+    },
+    {
+      "id": "prob-fab7a78f",
+      "tenantId": "demo-tenant",
+      "sprintId": null,
+      "title": "The Insight-Action Gap: Users consume career content and take assessments but fail to convert that self-knowledge into concrete micro-actions (e.g., sending an email).",
+      "description": "The Insight-Action Gap: Users consume career content and take assessments but fail to convert that self-knowledge into concrete micro-actions (e.g., sending an email).",
+      "hypothesis": null,
+      "source": "IMPORT",
+      "evidenceItems": [],
+      "evidenceSummary": null,
+      "scores": {
+        "applicability": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "severity": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "frequency": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "willingnessToPay": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "retentionImpact": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "acquisitionPotential": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "viralCoefficient": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "strategicFit": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "feasibility": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "timeToValue": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        },
+        "riskLevel": {
+          "value": 50,
+          "justification": null,
+          "source": "AI",
+          "ai_suggested": null,
+          "confidence": null,
+          "last_updated_at": null,
+          "last_updated_by": null
+        }
+      },
+      "priorityScore": null,
+      "status": "DISCOVERED",
+      "isShortlisted": false,
+      "shortlistOrder": null,
+      "tags": [],
+      "groupIds": [],
+      "createdAt": "2026-02-11T10:35:02.071517",
+      "updatedAt": "2026-02-11T10:35:02.071518",
+      "createdBy": "problem-enricher",
+      "lastScoredAt": null,
+      "lastScoredBy": null
+    }
+  ]
+}
