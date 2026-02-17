@@ -1,0 +1,14 @@
+export { AnimatedSection } from "./AnimatedSection";
+export { AuthGate } from "./AuthGate";
+export { ProposalShell } from "./ProposalShell";
+export { ProposalNav } from "./ProposalNav";
+export { HeroSection } from "./HeroSection";
+export { ExecutiveSummary } from "./ExecutiveSummary";
+export { DeliverablesSection } from "./DeliverablesSection";
+export { ContinuousIntelligence } from "./ContinuousIntelligence";
+export { FlexibilitySection } from "./FlexibilitySection";
+export { TeamSection } from "./TeamSection";
+export { IPOwnership } from "./IPOwnership";
+export { InvestmentTimeline } from "./InvestmentTimeline";
+export { SuccessMetrics } from "./SuccessMetrics";
+export { NextSteps } from "./NextSteps";
