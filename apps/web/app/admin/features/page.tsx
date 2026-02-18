@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { featuresApi, type Feature, type FeatureStatus } from '../_lib/api';
+import { AgentPageHeader } from '../_components/AgentPageHeader';
 
 const STATUS_COLORS: Record<FeatureStatus, { bg: string; text: string }> = {
   DRAFT: { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-700 dark:text-gray-300' },
@@ -60,6 +61,7 @@ export default function FeaturesPage() {
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AgentPageHeader agentId="engineering" />
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>

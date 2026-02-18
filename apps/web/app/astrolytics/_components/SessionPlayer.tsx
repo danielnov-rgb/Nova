@@ -54,7 +54,7 @@ export function SessionPlayer({ session }: SessionPlayerProps) {
                 key={i}
                 className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white/80 hover:bg-white transition-colors cursor-pointer"
                 style={{ left: `${(i / (totalEvents - 1)) * 100}%` }}
-                title={session.eventTimeline[i].event}
+                title={session.eventTimeline[i]?.event}
               />
             ))}
           </div>

@@ -19,6 +19,7 @@ import { SolutionsModule } from './solutions/solutions.module';
 import { FeaturesModule } from './features/features.module';
 import { PluginModule } from './plugin/plugin.module';
 import { ProblemGroupsModule } from './problem-groups/problem-groups.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ProblemGroupsModule } from './problem-groups/problem-groups.module';
     FeaturesModule,
     PluginModule,
     ProblemGroupsModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

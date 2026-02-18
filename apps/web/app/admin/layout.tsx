@@ -9,6 +9,7 @@ import { NovaLogo } from "../_components/shared/NovaLogo";
 import { DemoModePopup, useDemoModePopup } from "./_components/DemoModePopup";
 import { isDemoModeError, DemoModeError, isReadOnly, canManageProblems, canManageSessions, canAccessAdminSessions, shouldUseVoterInterface } from "./_lib/permissions";
 import { authApi } from "./_lib/api";
+import { AstraChatPanel, AstraChatToggle, useAstraChat, useAstraContext } from "./_components/astra";
 
 // Demo users for quick switching during testing
 // Groups marked as "Full Access" can manage sessions, others use voter interface
@@ -71,6 +72,9 @@ export default function AdminLayout({
   const [menuOpen, setMenuOpen] = useState(false);
   const [userSwitcherOpen, setUserSwitcherOpen] = useState(false);
   const [switchingUser, setSwitchingUser] = useState(false);
+  const [astraOpen, setAstraOpen] = useState(false);
+  const astraContext = useAstraContext();
+  const { messages: astraMessages, isStreaming: astraStreaming, sendMessage: astraSendMessage, clearChat: astraClearChat } = useAstraChat(astraContext);
   const menuRef = useRef<HTMLDivElement>(null);
   const userSwitcherRef = useRef<HTMLDivElement>(null);
   const { error: demoError, showDemoError, clearError } = useDemoModePopup();
@@ -181,6 +185,7 @@ export default function AdminLayout({
   // Check if any "more" menu item is active
   const moreMenuPaths = [
     "/admin/onboarding",
+    "/admin/strategy",
     "/admin/audience",
     "/admin/market",
     "/admin/competitors",
@@ -193,6 +198,7 @@ export default function AdminLayout({
     "/admin/groups",
     "/admin/sprints",
     "/admin/import",
+    "/astrolytics",
   ];
   const isMoreMenuActive = moreMenuPaths.some(path => pathname.startsWith(path));
 
@@ -228,7 +234,7 @@ export default function AdminLayout({
         )}
 
         {/* Header */}
-        <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <header className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
@@ -241,8 +247,11 @@ export default function AdminLayout({
 
               {/* Main Navigation - Role-based */}
               <nav className="flex items-center gap-1">
+                <NavLink href="/admin/dashboard" current={pathname === "/admin/dashboard"}>
+                  Dashboard
+                </NavLink>
                 <NavLink href="/admin/problems" current={pathname.startsWith("/admin/problems")}>
-                  Problems
+                  Discovery
                 </NavLink>
                 {canAccessAdminSessions(user) && (
                   <NavLink href="/admin/sessions" current={pathname.startsWith("/admin/sessions")}>
@@ -359,15 +368,21 @@ export default function AdminLayout({
 
               {/* Dropdown Menu */}
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50 max-h-[80vh] overflow-y-auto">
                   <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Research & Intel
+                    <p className="text-xs font-medium text-blue-500 dark:text-blue-400 uppercase tracking-wider">
+                      01 — Strategy Agent
                     </p>
                   </div>
-                  <DropdownLink href="/admin/onboarding" current={pathname.startsWith("/admin/onboarding")}>
-                    Onboarding
+                  <DropdownLink href="/admin/onboarding" current={pathname.startsWith("/admin/onboarding") || pathname.startsWith("/admin/strategy")}>
+                    Business Context
                   </DropdownLink>
+
+                  <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
+                    <p className="text-xs font-medium text-purple-500 dark:text-purple-400 uppercase tracking-wider">
+                      02 — Research Agent
+                    </p>
+                  </div>
                   <DropdownLink href="/admin/audience" current={pathname.startsWith("/admin/audience")}>
                     Audience
                   </DropdownLink>
@@ -379,36 +394,39 @@ export default function AdminLayout({
                   </DropdownLink>
 
                   <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Product
+                    <p className="text-xs font-medium text-cyan-500 dark:text-cyan-400 uppercase tracking-wider">
+                      04 — Solution Architecture
+                    </p>
+                  </div>
+                  <DropdownLink href="/admin/solutions" current={pathname.startsWith("/admin/solutions")}>
+                    Solutions
+                  </DropdownLink>
+
+                  <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
+                    <p className="text-xs font-medium text-green-500 dark:text-green-400 uppercase tracking-wider">
+                      05 — Engineering Agents
                     </p>
                   </div>
                   <DropdownLink href="/admin/projects" current={pathname.startsWith("/admin/projects")}>
                     Projects
                   </DropdownLink>
-                  <DropdownLink href="/admin/solutions" current={pathname.startsWith("/admin/solutions")}>
-                    Solutions
+                  <DropdownLink href="/admin/features" current={pathname.startsWith("/admin/features")}>
+                    Features
                   </DropdownLink>
                   <DropdownLink href="/admin/sprints" current={pathname.startsWith("/admin/sprints")}>
                     Sprints
                   </DropdownLink>
 
                   <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Plugin & Analytics
+                    <p className="text-xs font-medium text-amber-500 dark:text-amber-400 uppercase tracking-wider">
+                      07 — Astrolytics
                     </p>
                   </div>
-                  <DropdownLink href="/admin/features" current={pathname.startsWith("/admin/features")}>
-                    Features
+                  <DropdownLink href="/astrolytics" current={pathname.startsWith("/astrolytics")}>
+                    Analytics Dashboard
                   </DropdownLink>
                   <DropdownLink href="/admin/plugin" current={pathname === "/admin/plugin"}>
-                    Plugin
-                  </DropdownLink>
-                  <DropdownLink href="/admin/plugin/demo" current={pathname.startsWith("/admin/plugin/demo")}>
-                    Plugin Demo
-                  </DropdownLink>
-                  <DropdownLink href="/admin/analytics" current={pathname.startsWith("/admin/analytics")}>
-                    Analytics
+                    Plugin Config
                   </DropdownLink>
 
                   <div className="px-3 py-2 border-b border-t border-gray-100 dark:border-gray-800 mt-1">
@@ -439,8 +457,25 @@ export default function AdminLayout({
         </div>
       </header>
 
-        {/* Main content */}
-        <main>{children}</main>
+        {/* Main content + Astra side-by-side */}
+        <div className="flex">
+          <main className={`flex-1 min-w-0 transition-all duration-300 ${astraOpen ? "lg:w-2/3" : "w-full"}`}>
+            {children}
+          </main>
+
+          <AstraChatPanel
+            isOpen={astraOpen}
+            onClose={() => setAstraOpen(false)}
+            messages={astraMessages}
+            isStreaming={astraStreaming}
+            onSendMessage={astraSendMessage}
+            onClearChat={astraClearChat}
+            agentId={astraContext.agentId}
+          />
+        </div>
+
+        {/* Astra Toggle */}
+        <AstraChatToggle isOpen={astraOpen} onClick={() => setAstraOpen(true)} />
       </div>
     </AdminContext.Provider>
   );

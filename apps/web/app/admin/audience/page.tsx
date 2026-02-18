@@ -9,6 +9,7 @@ import { SyntheticUser } from "../_lib/types/synthetic-user";
 import PersonaCard from "./_components/PersonaCard";
 import PersonaModal from "./_components/PersonaModal";
 import { DemographicComparisonDashboard, AudienceOverview } from "./_components/DemographicCharts";
+import { AgentPageHeader } from "../_components/AgentPageHeader";
 
 const TYPE_LABELS: Record<TargetAudienceType, string> = {
   EXISTING: "Current Customers",
@@ -88,6 +89,7 @@ export default function AudiencePage() {
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AgentPageHeader agentId="research" />
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

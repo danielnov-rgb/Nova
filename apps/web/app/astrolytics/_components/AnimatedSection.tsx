@@ -21,7 +21,7 @@ export function AnimatedSection({
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) setIsVisible(true);
+        if (entries[0]?.isIntersecting) setIsVisible(true);
       },
       { threshold }
     );

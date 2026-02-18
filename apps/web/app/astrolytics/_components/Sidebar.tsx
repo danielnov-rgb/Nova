@@ -46,6 +46,12 @@ const navGroups: NavGroup[] = [
       { href: "/astrolytics/sql", label: "SQL Explorer", icon: "code" },
     ],
   },
+  {
+    label: "Nova Plugin",
+    items: [
+      { href: "/astrolytics/demo", label: "Live Demo", icon: "zap" },
+    ],
+  },
 ];
 
 function NavIcon({ name, className = "w-5 h-5" }: { name: string; className?: string }) {
@@ -114,6 +120,11 @@ function NavIcon({ name, className = "w-5 h-5" }: { name: string; className?: st
     code: (
       <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+      </svg>
+    ),
+    zap: (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     ),
     "chevron-left": (
@@ -198,70 +209,77 @@ export function Sidebar() {
           collapsed ? "w-16" : "w-60"
         }`}
       >
-        {/* Logo */}
-        <div className={`h-16 flex items-center border-b border-gray-800 ${collapsed ? "px-3 justify-center" : "px-5"}`}>
-          <AstrolyticsLogo collapsed={collapsed} />
+        {/* Logo + Back to Nova (pinned) */}
+        <div className="border-b border-gray-800">
+          <div className={`h-16 flex items-center ${collapsed ? "px-3 justify-center" : "px-5"}`}>
+            <AstrolyticsLogo collapsed={collapsed} />
+          </div>
+          <div className="px-2 pb-3">
+            <Link
+              href="/admin/dashboard"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-primary-400 hover:bg-primary-500/10 transition-colors ${collapsed ? "justify-center" : ""}`}
+              title="Back to Nova"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+              </svg>
+              {!collapsed && <span>Back to Nova</span>}
+            </Link>
+          </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-4 px-2">
-          {navGroups.map((group) => (
-            <div key={group.label} className="mb-5">
-              {!collapsed && (
-                <div className="px-3 mb-2 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">
-                  {group.label}
+        {/* Nav + Footer (scroll together, no gap) */}
+        <div className="flex-1 overflow-y-auto">
+          <nav className="py-4 px-2">
+            {navGroups.map((group) => (
+              <div key={group.label} className="mb-5">
+                {!collapsed && (
+                  <div className="px-3 mb-2 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">
+                    {group.label}
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        title={collapsed ? item.label : undefined}
+                        className={`group/item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                          isActive
+                            ? "bg-primary-500/15 text-primary-400"
+                            : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                        } ${collapsed ? "justify-center" : ""}`}
+                      >
+                        <span className={isActive ? "text-primary-400" : "text-gray-500 group-hover/item:text-gray-300 transition-colors"}>
+                          <NavIcon name={item.icon} />
+                        </span>
+                        {!collapsed && <span>{item.label}</span>}
+                      </Link>
+                    );
+                  })}
                 </div>
-              )}
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={`group/item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-                        isActive
-                          ? "bg-primary-500/15 text-primary-400"
-                          : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                      } ${collapsed ? "justify-center" : ""}`}
-                    >
-                      <span className={isActive ? "text-primary-400" : "text-gray-500 group-hover/item:text-gray-300 transition-colors"}>
-                        <NavIcon name={item.icon} />
-                      </span>
-                      {!collapsed && <span>{item.label}</span>}
-                    </Link>
-                  );
-                })}
               </div>
-            </div>
-          ))}
-        </nav>
+            ))}
+          </nav>
 
-        {/* Footer */}
-        <div className="border-t border-gray-800 p-3">
-          <ThemeToggle collapsed={collapsed} />
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors"
-          >
-            <NavIcon name={collapsed ? "chevron-right" : "chevron-left"} className="w-4 h-4" />
-            {!collapsed && <span>Collapse</span>}
-          </button>
-          {!collapsed && (
-            <div className="mt-3 mx-3 pt-3 border-t border-gray-800/50 flex items-center gap-2">
-              <div className="w-5 h-5 bg-gradient-to-br from-primary-400 to-cyan-400 rounded flex items-center justify-center">
-                <span className="text-[9px] font-bold text-white">N</span>
-              </div>
-              <span className="text-[10px] text-gray-600">Powered by Nova</span>
-            </div>
-          )}
+          <div className="border-t border-gray-800 p-3">
+            <ThemeToggle collapsed={collapsed} />
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors"
+            >
+              <NavIcon name={collapsed ? "chevron-right" : "chevron-left"} className="w-4 h-4" />
+              {!collapsed && <span>Collapse</span>}
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-950/95 backdrop-blur-xl border-t border-gray-800 flex items-center justify-around px-2 py-1.5">
-        {navGroups[0].items.slice(0, 5).map((item) => {
+        {navGroups[0]!.items.slice(0, 5).map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link

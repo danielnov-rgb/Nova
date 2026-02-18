@@ -14,7 +14,7 @@ export function FunnelChart({ steps }: FunnelChartProps) {
     <div className="space-y-3">
       {steps.map((step, i) => {
         const widthPercent = (step.count / maxCount) * 100;
-        const prevCount = i > 0 ? steps[i - 1].count : null;
+        const prevCount = i > 0 ? steps[i - 1]!.count : null;
         const dropOffCount = prevCount ? prevCount - step.count : 0;
 
         return (
@@ -63,10 +63,10 @@ export function FunnelChart({ steps }: FunnelChartProps) {
         <span className="text-sm text-gray-400">Overall Conversion</span>
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold bg-gradient-to-r from-primary-400 to-cyan-400 bg-clip-text text-transparent">
-            {((steps[steps.length - 1].count / steps[0].count) * 100).toFixed(1)}%
+            {((steps[steps.length - 1]!.count / steps[0]!.count) * 100).toFixed(1)}%
           </span>
           <span className="text-xs text-gray-500">
-            ({formatNumber(steps[0].count)} → {formatNumber(steps[steps.length - 1].count)})
+            ({formatNumber(steps[0]!.count)} → {formatNumber(steps[steps.length - 1]!.count)})
           </span>
         </div>
       </div>

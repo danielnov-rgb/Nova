@@ -73,7 +73,7 @@ export default function RetentionPage() {
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-gradient-to-r from-primary-900/50 to-cyan-900/50 border border-primary-700/50">
               <span className="text-primary-400 font-semibold">{cohorts.length}</span>
-              <span className="text-gray-300">cohorts analyzed over {cohorts[0].retention.length} weeks</span>
+              <span className="text-gray-300">cohorts analyzed over {cohorts[0]!.retention.length} weeks</span>
             </div>
           </div>
         </AnimatedSection>

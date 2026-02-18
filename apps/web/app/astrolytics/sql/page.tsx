@@ -35,7 +35,7 @@ export default function SqlPage() {
   const [hasRun, setHasRun] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
 
-  const headers = hasRun ? Object.keys(MOCK_RESULTS[0]) : [];
+  const headers = hasRun ? Object.keys(MOCK_RESULTS[0]!) : [];
   const rows = hasRun ? MOCK_RESULTS.map((r) => Object.values(r).map((v) => typeof v === "number" ? v.toLocaleString() : v)) : [];
   const chartData = MOCK_RESULTS.map((r) => ({
     name: r.Browser,

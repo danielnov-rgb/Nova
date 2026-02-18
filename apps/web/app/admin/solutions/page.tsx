@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { solutionsApi, Solution, SolutionStatus } from "../_lib/api";
+import { AgentPageHeader } from "../_components/AgentPageHeader";
 
 const STATUS_LABELS: Record<SolutionStatus, string> = {
   DESIGNED: "Designed",
@@ -64,6 +65,7 @@ export default function SolutionsPage() {
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AgentPageHeader agentId="solution" />
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

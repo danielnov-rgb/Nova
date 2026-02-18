@@ -1,0 +1,15 @@
+{
+  "anthropic": {
+    "apiKey": "sk-ant-your-key-here",
+    "model": "claude-sonnet-4-5-20250929"
+  },
+  "elevenlabs": {
+    "apiKey": "your-elevenlabs-key-here",
+    "defaultVoiceId": "21m00Tcm4TlvDq8ikWAM"
+  },
+  "heygen": {
+    "apiKey": "your-heygen-key-here",
+    "avatarId": "Angela-inTshirt-20220820",
+    "backgroundId": ""
+  }
+}

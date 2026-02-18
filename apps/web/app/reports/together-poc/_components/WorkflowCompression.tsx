@@ -11,7 +11,7 @@ function WorkflowCard({ example, index }: { example: typeof workflowExamples[0];
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0]?.isIntersecting) {
           setIsVisible(true);
         }
       },
@@ -116,7 +116,7 @@ export function WorkflowCompression() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0]?.isIntersecting) {
           setIsVisible(true);
         }
       },

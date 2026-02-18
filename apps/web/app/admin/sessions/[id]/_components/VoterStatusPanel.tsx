@@ -265,7 +265,7 @@ function VoterRow({ voter }: { voter: SessionVoter }) {
   const status = getVoterStatus(voter);
   const config = statusConfig[status];
 
-  const displayName = voter.name || voter.email.split("@")[0];
+  const displayName = voter.name || voter.email.split("@")[0] || voter.email;
 
   return (
     <div className="px-5 py-3 flex items-center justify-between">

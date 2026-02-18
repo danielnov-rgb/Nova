@@ -33,7 +33,7 @@ const chartTypeIcons: Record<ChartType, React.ReactNode> = {
 };
 
 export default function TrendsPage() {
-  const [selectedEvents, setSelectedEvents] = useState<string[]>(["Page View", "Sign Up"]);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(() => trendsData.events.slice(0, 2));
   const [breakdown, setBreakdown] = useState("None");
   const [chartType, setChartType] = useState<ChartType>("line");
 
@@ -42,10 +42,10 @@ export default function TrendsPage() {
     const activeSeries = trendsData.series.filter((s) => selectedEvents.includes(s.name));
     if (activeSeries.length === 0) return [];
 
-    return activeSeries[0].data.map((point, i) => {
+    return activeSeries[0]!.data.map((point, i) => {
       const row: Record<string, string | number> = { date: point.date };
       for (const series of activeSeries) {
-        row[series.name] = series.data[i].value;
+        row[series.name] = series.data[i]!.value;
       }
       return row;
     });
@@ -242,7 +242,7 @@ export default function TrendsPage() {
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-gradient-to-r from-primary-900/50 to-cyan-900/50 border border-primary-700/50">
               <span className="text-primary-400 font-semibold">{selectedEvents.length}</span>
-              <span className="text-gray-300">events tracked across {trendsData.series[0].data.length} days</span>
+              <span className="text-gray-300">events tracked across {trendsData.series[0]!.data.length} days</span>
             </div>
           </div>
         </AnimatedSection>

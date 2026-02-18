@@ -78,7 +78,7 @@ function formatValue(value: string | number, unit?: string) {
   return unit ? `${value} ${unit}` : value;
 }
 
-function Badge({ children, tone = "blue" }: { children: string; tone?: "blue" | "amber" | "emerald" }) {
+function Badge({ children, tone = "blue" }: { children: React.ReactNode; tone?: "blue" | "amber" | "emerald" }) {
   const styles = {
     blue: "bg-blue-500/15 text-blue-200 border-blue-500/30",
     amber: "bg-amber-500/15 text-amber-200 border-amber-500/30",

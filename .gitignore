@@ -47,3 +47,7 @@ yarn-error.log*
 # Python virtual environments
 venv/
 .venv/
+
+# Service configs with API keys
+**/config/providers.json
+services/*/data/

@@ -3,11 +3,14 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { AgentPageHeader } from '../_components/AgentPageHeader';
 import {
   EnhancedProblem,
+  EvidenceItem,
   ProblemGroup,
   ProblemStatus,
   ProblemSource,
+  ScoreWithMeta,
   WeightValues,
   DEFAULT_WEIGHTS,
   DEFAULT_SCORES,
@@ -22,12 +25,12 @@ import type { Problem as ApiProblem } from '../_lib/types';
 const VIEW_MODE_KEY = 'nova-problems-view-mode';
 
 // Helper to extract score value from API response (handles both number and object formats)
-function extractScore(score: unknown): { value: number; justification?: string; source?: string } {
+function extractScore(score: unknown): ScoreWithMeta {
   if (typeof score === 'number') {
     return { value: score };
   }
   if (score && typeof score === 'object' && 'value' in score) {
-    return score as { value: number; justification?: string; source?: string };
+    return score as ScoreWithMeta;
   }
   return { value: 0 };
 }
@@ -42,7 +45,7 @@ function transformApiProblem(apiProblem: ApiProblem): EnhancedProblem {
     description: apiProblem.description || '',
     hypothesis: apiProblem.hypothesis,
     source: (apiProblem.source as ProblemSource) || 'MANUAL',
-    evidenceItems: apiProblem.evidenceItems || [],
+    evidenceItems: (apiProblem.evidenceItems || []) as EvidenceItem[],
     evidenceSummary: apiProblem.evidenceSummary,
     status: (apiProblem.status as ProblemStatus) || 'DISCOVERED',
     isShortlisted: false,
@@ -444,6 +447,7 @@ export default function ProblemsPage() {
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AgentPageHeader agentId="discovery" />
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>

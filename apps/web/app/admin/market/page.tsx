@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { marketApi, MarketIntelligence, MarketIntelligenceCategory } from "../_lib/api";
 import { sampleMarketData, getSampleDataByCategory } from "./_data/sample-market-data";
+import { AgentPageHeader } from "../_components/AgentPageHeader";
 
 const CATEGORY_LABELS: Record<MarketIntelligenceCategory, string> = {
   INDUSTRY: "Industry Trends",
@@ -86,6 +87,7 @@ export default function MarketPage() {
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AgentPageHeader agentId="research" />
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

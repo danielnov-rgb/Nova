@@ -24,7 +24,7 @@ export default function VotersPage() {
   async function fetchVoters() {
     try {
       const result = await votersApi.list(sessionId);
-      setData(result);
+      setData(result as SessionVotersResponse);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load voters");
     } finally {

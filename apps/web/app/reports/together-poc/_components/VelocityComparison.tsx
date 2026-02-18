@@ -32,7 +32,7 @@ export function VelocityComparison() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0]?.isIntersecting) {
           setIsVisible(true);
         }
       },
@@ -49,7 +49,7 @@ export function VelocityComparison() {
   const totalWeeks = velocityComparison.reduce((acc, item) => {
     const match = item.traditional.match(/(\d+)-?(\d+)?/);
     if (match) {
-      const min = parseInt(match[1]);
+      const min = parseInt(match[1]!);
       const max = match[2] ? parseInt(match[2]) : min;
       return acc + (min + max) / 2;
     }

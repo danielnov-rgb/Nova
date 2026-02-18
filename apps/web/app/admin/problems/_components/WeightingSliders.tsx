@@ -65,7 +65,7 @@ export function WeightingSliders({
       0
     );
     if (newTotal !== 100 && enabledAttributes.size > 0) {
-      const firstKey = Array.from(enabledAttributes)[0];
+      const firstKey = Array.from(enabledAttributes)[0]!;
       normalized[firstKey] += 100 - newTotal;
     }
     onChange(normalized);

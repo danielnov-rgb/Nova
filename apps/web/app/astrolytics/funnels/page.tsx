@@ -13,7 +13,7 @@ import { formatNumber } from "../_lib/formatters";
 
 export default function FunnelsPage() {
   const { steps, conversionOverTime, breakdown } = funnelsData;
-  const overallRate = ((steps[steps.length - 1].count / steps[0].count) * 100).toFixed(1);
+  const overallRate = ((steps[steps.length - 1]!.count / steps[0]!.count) * 100).toFixed(1);
 
   const tableHeaders = ["Step", "Users", "Conversion", "Drop-off", "Median Time"];
   const tableRows = steps.map((step, i) => [

@@ -11,7 +11,7 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !hasAnimated.current) {
+        if (entries[0]?.isIntersecting && !hasAnimated.current) {
           hasAnimated.current = true;
           const duration = 1500;
           const steps = 60;
@@ -52,7 +52,7 @@ export function MetricsGrid() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0]?.isIntersecting) {
           setIsVisible(true);
         }
       },

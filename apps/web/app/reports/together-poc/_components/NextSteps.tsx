@@ -10,7 +10,7 @@ export function NextSteps() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0]?.isIntersecting) {
           setIsVisible(true);
         }
       },
@@ -111,13 +111,13 @@ export function NextSteps() {
             </p>
 
             <a
-              href={`mailto:${contactTeam[0].email}`}
+              href={`mailto:${contactTeam[0]!.email}`}
               className="group inline-flex items-center gap-4 px-10 py-5 bg-gradient-to-r from-primary-500 to-cyan-500 rounded-2xl text-white font-semibold text-xl hover:scale-105 hover:shadow-2xl hover:shadow-primary-500/25 transition-all duration-300"
             >
               <svg className="w-6 h-6 transition-transform group-hover:-translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <span>Get in Touch with {contactTeam[0].name}</span>
+              <span>Get in Touch with {contactTeam[0]!.name}</span>
               <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>

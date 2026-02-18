@@ -7,8 +7,8 @@ import { FilterBar } from "../_components/FilterBar";
 import { SessionPlayer } from "../_components/SessionPlayer";
 
 export default function SessionReplayPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(sessions[0].id);
-  const selected = sessions.find((s) => s.id === selectedId) ?? sessions[0];
+  const [selectedId, setSelectedId] = useState<string | null>(sessions[0]!.id);
+  const selected = sessions.find((s) => s.id === selectedId) ?? sessions[0]!;
 
   return (
     <div className="relative min-h-screen">

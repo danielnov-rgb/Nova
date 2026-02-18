@@ -79,7 +79,7 @@ export default function ExperimentsPage() {
                   </div>
 
                   {/* Variants table */}
-                  {exp.variants[0].users > 0 && (
+                  {exp.variants[0]!.users > 0 && (
                     <div className="mb-4 overflow-x-auto">
                       <table className="w-full">
                         <thead>

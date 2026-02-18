@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { sessionsApi } from "../_lib/api";
 import { isAuthenticated } from "../_lib/auth";
 import type { VotingSessionListItem, SessionStatus } from "../_lib/types";
+import { AgentPageHeader } from "../_components/AgentPageHeader";
 
 const statusConfig: Record<SessionStatus, { label: string; className: string }> = {
   DRAFT: {
@@ -90,6 +91,7 @@ export default function SessionsListPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <AgentPageHeader agentId="discovery" />
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

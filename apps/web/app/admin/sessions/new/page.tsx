@@ -33,7 +33,7 @@ export default function CreateSessionPage() {
   const [formData, setFormData] = useState<SessionFormData>({
     title: "Q1 2026 Priority Vote",
     description: "Vote on the most important problems to tackle this quarter. You have limited credits - use them wisely!",
-    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // 1 week from now
+    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!, // 1 week from now
     defaultCredits: 25,
     sprintId: "",
   });

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { solutionsApi, problemsApi, Problem, SolutionStatus } from "../../_lib/api";
+import { solutionsApi, problemsApi, SolutionStatus } from "../../_lib/api";
+import type { Problem } from "../../_lib/types";
 
 const STATUS_OPTIONS: { value: SolutionStatus; label: string }[] = [
   { value: "DESIGNED", label: "Designed" },
